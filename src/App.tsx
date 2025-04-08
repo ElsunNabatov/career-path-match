@@ -10,6 +10,11 @@ import ChatScreen from "./components/Chat/ChatScreen";
 import CalendarScreen from "./components/Calendar/CalendarScreen";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/Layout/AppLayout";
+import SignInScreen from "./components/Authentication/SignInScreen";
+import SignUpScreen from "./components/Authentication/SignUpScreen";
+import VerificationScreen from "./components/Authentication/VerificationScreen";
+import PersonalInfoForm from "./components/Onboarding/PersonalInfoForm";
+import PreferencesForm from "./components/Onboarding/PreferencesForm";
 
 const queryClient = new QueryClient();
 
@@ -20,7 +25,13 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<OnboardingScreen />} />
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/signin" element={<SignInScreen />} />
+          <Route path="/signup" element={<SignUpScreen />} />
+          <Route path="/verification" element={<VerificationScreen />} />
+          <Route path="/onboarding" element={<OnboardingScreen />} />
+          <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
+          <Route path="/onboarding/preferences" element={<PreferencesForm />} />
           
           <Route path="/" element={<AppLayout />}>
             <Route path="/home" element={<Navigate to="/discover" replace />} />
