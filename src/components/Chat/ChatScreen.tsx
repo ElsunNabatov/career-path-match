@@ -1,7 +1,6 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, ChevronLeft, Send, User, Coffee, Sandwich, EyeOff, Eye } from "lucide-react";
+import { Calendar, ChevronLeft, Send, User, Coffee, Sandwich, EyeOff, Eye, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -259,6 +258,18 @@ const ChatView: React.FC<ChatViewProps> = ({
   );
 };
 
+const EmptyLikes = () => (
+  <div className="flex flex-col items-center justify-center py-10 text-center">
+    <div className="h-16 w-16 rounded-full bg-brand-purple/10 flex items-center justify-center mb-4">
+      <Heart className="h-8 w-8 text-brand-purple" />
+    </div>
+    <h3 className="text-lg font-medium">No new likes yet</h3>
+    <p className="text-gray-500 text-sm mt-1">
+      Check back soon to see who's interested
+    </p>
+  </div>
+);
+
 const ChatScreen: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("messages");
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -322,11 +333,26 @@ const ChatScreen: React.FC = () => {
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="likes">Likes</TabsTrigger>
           </TabsList>
+          
+          {selectedMatchId ? null : (
+            <div className="p-4">
+              <TabsContent value="messages" className="mt-0">
+                <ChatList 
+                  matches={sampleMatches}
+                  onSelectMatch={handleSelectMatch}
+                  selectedMatchId={selectedMatchId}
+                />
+              </TabsContent>
+              <TabsContent value="likes" className="mt-0">
+                <EmptyLikes />
+              </TabsContent>
+            </div>
+          )}
         </Tabs>
       </div>
 
       <div className="h-[calc(100vh-140px)]">
-        {selectedMatchId ? (
+        {selectedMatchId && (
           <ChatView
             match={selectedMatch}
             messages={messages}
@@ -337,34 +363,10 @@ const ChatScreen: React.FC = () => {
             setMessageInput={setMessageInput}
             onSendMessage={handleSendMessage}
           />
-        ) : (
-          <div className="p-4">
-            <TabsContent value="messages" className="mt-0">
-              <ChatList 
-                matches={sampleMatches}
-                onSelectMatch={handleSelectMatch}
-                selectedMatchId={selectedMatchId}
-              />
-            </TabsContent>
-            <TabsContent value="likes" className="mt-0">
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="h-16 w-16 rounded-full bg-brand-purple/10 flex items-center justify-center mb-4">
-                  <Heart className="h-8 w-8 text-brand-purple" />
-                </div>
-                <h3 className="text-lg font-medium">No new likes yet</h3>
-                <p className="text-gray-500 text-sm mt-1">
-                  Check back soon to see who's interested
-                </p>
-              </div>
-            </TabsContent>
-          </div>
         )}
       </div>
     </div>
   );
 };
-
-// Add missing import at the top
-import { Heart } from "lucide-react";
 
 export default ChatScreen;
