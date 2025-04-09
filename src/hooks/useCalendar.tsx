@@ -27,7 +27,7 @@ export const useCalendar = () => {
 
     if (error) throw error;
     
-    return data.map((date: any) => {
+    return (data || []).map((date: any) => {
       // Determine if the current user is user1 or user2
       const isUser1 = date.matches.user1 === user.id;
       const partnerProfile = isUser1 ? date.profiles_dates_user2_profile_fk : date.profiles_dates_user1_profile_fk;
@@ -59,7 +59,7 @@ export const useCalendar = () => {
 
     if (error) throw error;
     
-    return data.map((date: any) => {
+    return (data || []).map((date: any) => {
       // Determine if the current user is user1 or user2
       const isUser1 = date.matches.user1 === user.id;
       const partnerProfile = isUser1 ? date.profiles_dates_user2_profile_fk : date.profiles_dates_user1_profile_fk;

@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +16,7 @@ export const useLoyalty = () => {
 
     if (error) throw error;
     
-    return data.map((venue: LoyaltyVenue) => {
+    return (data || []).map((venue: LoyaltyVenue) => {
       // Calculate applicable discount based on subscription level
       let discount = venue.discount_free;
       

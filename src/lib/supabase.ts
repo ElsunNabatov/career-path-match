@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 
 // Helper function to get the current user
 export const getCurrentUser = async () => {
@@ -19,5 +20,5 @@ export const getUserProfile = async (userId: string) => {
     throw error;
   }
 
-  return data;
+  return data as Tables<'profiles'>;
 };

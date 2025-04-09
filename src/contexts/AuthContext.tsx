@@ -71,8 +71,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         return 'free';
       }
       
-      setSubscription(data.plan);
-      return data.plan;
+      setSubscription(data?.plan as 'free' | 'premium' | 'premium_plus' || 'free');
+      return data?.plan || 'free';
     } catch (error) {
       console.error('Error fetching subscription:', error);
       setSubscription('free');
