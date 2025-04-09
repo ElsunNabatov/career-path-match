@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Calendar, Clock, Coffee, Sandwich, MapPin, Bell } from "lucide-react";
+import { Calendar, Clock, Coffee, Sandwich, MapPin, Bell, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
@@ -14,35 +14,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Sample upcoming dates
-const sampleUpcomingDates = [
-  {
-    id: "1",
-    matchName: "Emily J.",
-    matchId: "1",
-    date: new Date(2025, 3, 10, 18, 30),
-    location: "Starbucks Coffee",
-    address: "123 Tech Avenue",
-    type: "coffee",
-    isAnonymous: true,
-  },
-];
-
-// Sample past dates
-const samplePastDates = [
-  {
-    id: "2",
-    matchName: "Michael Chen",
-    matchId: "2",
-    date: new Date(2025, 3, 5, 19, 0),
-    location: "Urban Bistro",
-    address: "456 Downtown Street",
-    type: "meal",
-    isAnonymous: false,
-    reviewed: false,
-  },
-];
+import { useCalendar } from "@/hooks/useCalendar";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CalendarScreen: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("upcoming");
@@ -51,23 +25,57 @@ const CalendarScreen: React.FC = () => {
   const [selectedPlace, setSelectedPlace] = useState("coffee");
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewDateId, setReviewDateId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { subscription } = useAuth();
+  
+  const {
+    upcomingDates,
+    pastDates,
+    isLoadingUpcoming,
+    isLoadingPast,
+    scheduleDate,
+    cancelDate,
+    submitReview
+  } = useCalendar();
 
-  // Date has events calculation (in a real app would check against actual events)
+  // Date has events calculation
   const hasEventsForDate = (date: Date) => {
-    // Check if there's an event on this date
-    return sampleUpcomingDates.some(
-      (event) => event.date.toDateString() === date.toDateString()
+    return upcomingDates.some(
+      (event) => new Date(event.date_time).toDateString() === date.toDateString()
     );
   };
 
   const handleSchedule = () => {
-    toast.success("Date scheduled successfully!");
-    toast("Calendar reminder set for 2 hours before your date");
+    if (!selectedDate) return;
+    
+    const dateTime = new Date(selectedDate);
+    const [hours, minutes] = selectedTime.split(':').map(Number);
+    dateTime.setHours(hours, minutes);
+    
+    // In a real app, this would be connected to a selected match
+    // For now, we'll just show a toast message
+    toast.info("To schedule a date, first select a match from the chat screen");
   };
 
-  const handleSubmitReview = (dateId: string) => {
-    // In a real app, this would submit the review to an API
-    toast.success("Review submitted successfully!");
+  const handleCancelDate = (dateId: string) => {
+    cancelDate(dateId);
+  };
+
+  const handleSubmitReview = (dateId: string, rating: number, wouldMeetAgain: boolean) => {
+    // Get the date info to extract the partner's ID
+    const dateInfo = pastDates.find(date => date.id === dateId);
+    if (!dateInfo) return;
+    
+    submitReview({
+      date_id: dateId,
+      reviewer_id: dateInfo.currentUserId, // This would be the current user's ID
+      reviewed_id: dateInfo.partnerId, // The partner's ID
+      punctuality_rating: rating,
+      communication_rating: rating,
+      overall_rating: rating, 
+      would_meet_again: wouldMeetAgain
+    });
+    
     setShowReviewForm(false);
     setReviewDateId(null);
   };
@@ -79,7 +87,15 @@ const CalendarScreen: React.FC = () => {
 
   // Content rendering for upcoming dates tab
   const renderUpcomingTabContent = () => {
-    if (sampleUpcomingDates.length === 0) {
+    if (isLoadingUpcoming) {
+      return (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
+        </div>
+      );
+    }
+
+    if (upcomingDates.length === 0) {
       return (
         <div className="text-center py-10">
           <div className="rounded-full bg-brand-purple/10 h-16 w-16 flex items-center justify-center mx-auto mb-4">
@@ -95,7 +111,7 @@ const CalendarScreen: React.FC = () => {
 
     return (
       <>
-        {sampleUpcomingDates.map((date) => (
+        {upcomingDates.map((date) => (
           <Card key={date.id} className="card-shadow mb-4">
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
@@ -103,20 +119,20 @@ const CalendarScreen: React.FC = () => {
                   <div className="flex items-center space-x-2 mb-2">
                     <Calendar className="h-4 w-4 text-brand-purple" />
                     <h3 className="font-semibold">
-                      Date with {date.matchName}
+                      Date with {date.partnerIsAnonymous ? "Anonymous" : date.partnerName}
                     </h3>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-gray-500" />
                       <span>
-                        {date.date.toLocaleDateString(undefined, {
+                        {new Date(date.date_time).toLocaleDateString(undefined, {
                           weekday: "long",
                           month: "long",
                           day: "numeric",
                         })}{" "}
                         at{" "}
-                        {date.date.toLocaleTimeString(undefined, {
+                        {new Date(date.date_time).toLocaleTimeString(undefined, {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -125,7 +141,7 @@ const CalendarScreen: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <MapPin className="h-4 w-4 text-gray-500" />
                       <span>
-                        {date.location} - {date.address}
+                        {date.location_name} - {date.location_address}
                       </span>
                     </div>
                   </div>
@@ -147,7 +163,12 @@ const CalendarScreen: React.FC = () => {
                   <Bell className="h-3 w-3 mr-1" />
                   Reminder on
                 </Button>
-                <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-red-500 hover:text-red-600"
+                  onClick={() => handleCancelDate(date.id)}
+                >
                   Cancel
                 </Button>
               </div>
@@ -218,13 +239,14 @@ const CalendarScreen: React.FC = () => {
                     <SelectItem value="coffee">
                       <div className="flex items-center">
                         <Coffee className="h-4 w-4 mr-2" />
-                        Coffee (20% discount)
+                        Coffee {subscription === 'premium' && "(20% discount)"}
+                        {subscription === 'premium_plus' && "(20% discount)"}
                       </div>
                     </SelectItem>
                     <SelectItem value="meal">
                       <div className="flex items-center">
                         <Sandwich className="h-4 w-4 mr-2" />
-                        Meal (10% discount)
+                        Meal {subscription === 'premium_plus' && "(10% discount)"}
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -246,6 +268,14 @@ const CalendarScreen: React.FC = () => {
 
   // Content rendering for past dates tab
   const renderPastTabContent = () => {
+    if (isLoadingPast) {
+      return (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
+        </div>
+      );
+    }
+
     if (showReviewForm && reviewDateId) {
       return (
         <div className="bg-white p-4 rounded-lg border card-shadow animate-fade-in">
@@ -261,6 +291,7 @@ const CalendarScreen: React.FC = () => {
                   <button
                     key={rating}
                     className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg hover:bg-brand-purple hover:text-white transition-colors"
+                    onClick={() => handleSubmitReview(reviewDateId, rating, true)}
                   >
                     {rating}
                   </button>
@@ -273,28 +304,18 @@ const CalendarScreen: React.FC = () => {
                 Would you give a chance for a second date?
               </label>
               <div className="flex space-x-4 mt-1">
-                <button className="flex-1 py-2 border rounded-md hover:bg-brand-purple hover:text-white transition-colors">
+                <button 
+                  className="flex-1 py-2 border rounded-md hover:bg-brand-purple hover:text-white transition-colors"
+                  onClick={() => handleSubmitReview(reviewDateId, 4, true)}
+                >
                   Yes
                 </button>
-                <button className="flex-1 py-2 border rounded-md hover:bg-brand-purple hover:text-white transition-colors">
+                <button 
+                  className="flex-1 py-2 border rounded-md hover:bg-brand-purple hover:text-white transition-colors"
+                  onClick={() => handleSubmitReview(reviewDateId, 2, false)}
+                >
                   No
                 </button>
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-sm text-gray-600 mb-1 block">
-                Overall, did you like their vibe?
-              </label>
-              <div className="flex space-x-1 mt-1">
-                {[1, 2, 3, 4, 5].map((rating) => (
-                  <button
-                    key={rating}
-                    className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg hover:bg-brand-purple hover:text-white transition-colors"
-                  >
-                    {rating}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -306,19 +327,13 @@ const CalendarScreen: React.FC = () => {
               >
                 Cancel
               </Button>
-              <Button
-                className="flex-1 bg-brand-purple hover:bg-brand-purple/90"
-                onClick={() => handleSubmitReview(reviewDateId)}
-              >
-                Submit Review
-              </Button>
             </div>
           </div>
         </div>
       );
     }
 
-    if (samplePastDates.length === 0) {
+    if (pastDates.length === 0) {
       return (
         <div className="text-center py-10">
           <div className="rounded-full bg-gray-100 h-16 w-16 flex items-center justify-center mx-auto mb-4">
@@ -334,7 +349,7 @@ const CalendarScreen: React.FC = () => {
 
     return (
       <>
-        {samplePastDates.map((date) => (
+        {pastDates.map((date) => (
           <Card key={date.id} className="card-shadow mb-4">
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
@@ -342,20 +357,20 @@ const CalendarScreen: React.FC = () => {
                   <div className="flex items-center space-x-2 mb-2">
                     <Calendar className="h-4 w-4 text-gray-500" />
                     <h3 className="font-semibold">
-                      Date with {date.matchName}
+                      Date with {date.partnerIsAnonymous ? "Anonymous" : date.partnerName}
                     </h3>
                   </div>
                   <div className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4" />
                       <span>
-                        {date.date.toLocaleDateString(undefined, {
+                        {new Date(date.date_time).toLocaleDateString(undefined, {
                           weekday: "long",
                           month: "long",
                           day: "numeric",
                         })}{" "}
                         at{" "}
-                        {date.date.toLocaleTimeString(undefined, {
+                        {new Date(date.date_time).toLocaleTimeString(undefined, {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -364,7 +379,7 @@ const CalendarScreen: React.FC = () => {
                     <div className="flex items-center space-x-2">
                       <MapPin className="h-4 w-4" />
                       <span>
-                        {date.location} - {date.address}
+                        {date.location_name} - {date.location_address}
                       </span>
                     </div>
                   </div>

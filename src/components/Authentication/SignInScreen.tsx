@@ -1,16 +1,18 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { ArrowRight, Linkedin } from "lucide-react";
+import { ArrowRight, Linkedin, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -19,6 +21,8 @@ const formSchema = z.object({
 
 const SignInScreen = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -28,14 +32,20 @@ const SignInScreen = () => {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
-    navigate("/discover");
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsLoading(true);
+    try {
+      await signIn(values.email, values.password);
+      // Auth context will handle navigation on successful login
+    } catch (error) {
+      // Auth context will handle error display
+      setIsLoading(false);
+    }
   };
 
   const handleLinkedInSignIn = () => {
-    // LinkedIn auth would be implemented here
-    navigate("/discover");
+    toast.info("LinkedIn authentication is not implemented in this demo");
+    // Implementation for LinkedIn auth would go here
   };
 
   return (
@@ -51,6 +61,7 @@ const SignInScreen = () => {
             type="button" 
             className="w-full mb-4 border-gray-300 flex items-center justify-center gap-2"
             onClick={handleLinkedInSignIn}
+            disabled={isLoading}
           >
             <Linkedin className="w-5 h-5 text-[#0077B5]" />
             <span>Continue with LinkedIn</span>
@@ -72,7 +83,11 @@ const SignInScreen = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
+                      <Input 
+                        placeholder="your.email@example.com" 
+                        {...field} 
+                        disabled={isLoading}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -85,24 +100,47 @@ const SignInScreen = () => {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        {...field} 
+                        disabled={isLoading}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <Button type="submit" className="w-full">
-                Sign In
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
-          <Button variant="link" className="text-muted-foreground">Forgot your password?</Button>
+          <Button variant="link" className="text-muted-foreground">
+            Forgot your password?
+          </Button>
           <div className="flex items-center justify-center gap-2">
             <span className="text-sm text-muted-foreground">Don't have an account?</span>
-            <Button variant="link" onClick={() => navigate("/signup")} className="p-0 h-auto text-sm text-primary">
+            <Button 
+              variant="link" 
+              onClick={() => navigate("/signup")} 
+              className="p-0 h-auto text-sm text-primary"
+              disabled={isLoading}
+            >
               Sign Up
             </Button>
           </div>
