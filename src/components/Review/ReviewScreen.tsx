@@ -1,19 +1,14 @@
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Star, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 interface ReviewScreenProps {
-  matchId: string;
-  matchName: string;
-  dateType: "coffee" | "meal";
-  location: string;
-  date: Date;
-  onClose: () => void;
-  onSubmit: (review: {
+  onClose?: () => void;
+  onSubmit?: (review: {
     rating: number;
     secondDate: boolean;
     vibeRating: number;
@@ -22,19 +17,32 @@ interface ReviewScreenProps {
 }
 
 const ReviewScreen: React.FC<ReviewScreenProps> = ({
-  matchId,
-  matchName,
-  dateType,
-  location,
-  date,
   onClose,
   onSubmit,
 }) => {
+  const navigate = useNavigate();
+  const { matchId } = useParams();
   const [treatmentRating, setTreatmentRating] = useState(0);
   const [secondDate, setSecondDate] = useState<boolean | null>(null);
   const [vibeRating, setVibeRating] = useState(0);
   const [comment, setComment] = useState("");
-  const navigate = useNavigate();
+
+  // Mock data for the match
+  const matchData = {
+    id: matchId || "1",
+    name: "Alex Thompson",
+    dateType: "coffee",
+    location: "Brew Haven Coffee Shop",
+    date: new Date(2023, 3, 15, 14, 30),
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      navigate(-1);
+    }
+  };
 
   const handleSubmit = () => {
     // Validate
@@ -44,12 +52,16 @@ const ReviewScreen: React.FC<ReviewScreenProps> = ({
     }
 
     // Submit review
-    onSubmit({
+    const reviewData = {
       rating: treatmentRating,
       secondDate,
       vibeRating,
       comment,
-    });
+    };
+    
+    if (onSubmit) {
+      onSubmit(reviewData);
+    }
 
     // Show success message
     toast.success("Review submitted successfully!");
@@ -59,30 +71,30 @@ const ReviewScreen: React.FC<ReviewScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="px-4 py-3 border-b flex items-center">
-        <button onClick={onClose} className="mr-2">
+    <div className="min-h-screen bg-white pb-20">
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b flex items-center">
+        <button onClick={handleClose} className="mr-2">
           <ChevronLeft className="h-6 w-6" />
         </button>
         <h1 className="text-xl font-bold">Review Your Date</h1>
       </div>
 
       <div className="p-4 space-y-6">
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-medium">{matchName}</h3>
+        <div className="p-4 bg-brand-purple/5 rounded-lg">
+          <h3 className="font-medium">{matchData.name}</h3>
           <p className="text-sm text-gray-500">
-            {date.toLocaleDateString(undefined, {
+            {matchData.date.toLocaleDateString(undefined, {
               weekday: "long",
               month: "long",
               day: "numeric",
             })}
             {" at "}
-            {date.toLocaleTimeString(undefined, {
+            {matchData.date.toLocaleTimeString(undefined, {
               hour: "2-digit",
               minute: "2-digit",
             })}
           </p>
-          <p className="text-sm text-gray-500">{location}</p>
+          <p className="text-sm text-gray-500">{matchData.location}</p>
         </div>
 
         <div className="space-y-6">
@@ -201,6 +213,11 @@ const ReviewScreen: React.FC<ReviewScreenProps> = ({
         >
           Submit Review
         </Button>
+        
+        <p className="text-xs text-center text-gray-500">
+          Your review helps maintain quality standards in our community.
+          Reviews are anonymous to your match.
+        </p>
       </div>
     </div>
   );

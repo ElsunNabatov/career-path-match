@@ -79,16 +79,33 @@
 }
 
 @layer components {
+  /* iPhone 14 Styling */
+  html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  
   .app-container {
     @apply h-[100dvh] w-screen overflow-hidden flex flex-col bg-background;
+    max-width: 430px; /* iPhone 14 width */
+    margin: 0 auto;
+    position: relative;
+    height: 100%;
+    height: 100dvh;
   }
   
   .screen-container {
     @apply flex-1 overflow-y-auto pb-16;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    height: calc(100% - 64px); /* Subtract bottom nav height */
   }
   
   .nav-icon {
-    @apply h-6 w-6;
+    @apply h-5 w-5;
   }
   
   .card-shadow {
@@ -110,4 +127,32 @@
   .compatibility-low {
     @apply text-red-500;
   }
+  
+  /* iPhone-specific Notch Handling */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
 }

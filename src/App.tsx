@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
-import DiscoveryScreen from "./components/Discovery/DiscoveryScreen";
+import PeopleScreen from "./components/People/PeopleScreen";
 import ChatScreen from "./components/Chat/ChatScreen";
 import CalendarScreen from "./components/Calendar/CalendarScreen";
 import NotFound from "./pages/NotFound";
@@ -15,6 +15,13 @@ import SignUpScreen from "./components/Authentication/SignUpScreen";
 import VerificationScreen from "./components/Authentication/VerificationScreen";
 import PersonalInfoForm from "./components/Onboarding/PersonalInfoForm";
 import PreferencesForm from "./components/Onboarding/PreferencesForm";
+import ProfileScreen from "./components/Profile/ProfileScreen";
+import PremiumScreen from "./components/Premium/PremiumScreen";
+import PaymentScreen from "./components/Payment/PaymentScreen";
+import LoyaltyScreen from "./components/Loyalty/LoyaltyScreen";
+import LinkedinVerificationScreen from "./components/Verification/LinkedinVerificationScreen";
+import ReviewScreen from "./components/Review/ReviewScreen";
+import LikedByScreen from "./components/People/LikedByScreen";
 
 const queryClient = new QueryClient();
 
@@ -32,13 +39,18 @@ const App = () => (
           <Route path="/onboarding" element={<OnboardingScreen />} />
           <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
           <Route path="/onboarding/preferences" element={<PreferencesForm />} />
+          <Route path="/linkedin-verification" element={<LinkedinVerificationScreen />} />
           
           <Route path="/" element={<AppLayout />}>
-            <Route path="/home" element={<Navigate to="/discover" replace />} />
-            <Route path="/discover" element={<DiscoveryScreen />} />
+            <Route path="/people" element={<PeopleScreen />} />
+            <Route path="/people/liked-by" element={<LikedByScreen />} />
             <Route path="/chats" element={<ChatScreen />} />
             <Route path="/calendar" element={<CalendarScreen />} />
-            <Route path="/profile" element={<DiscoveryScreen />} />
+            <Route path="/profile" element={<ProfileScreen />} />
+            <Route path="/premium" element={<PremiumScreen />} />
+            <Route path="/payment" element={<PaymentScreen />} />
+            <Route path="/loyalty" element={<LoyaltyScreen />} />
+            <Route path="/reviews/:matchId" element={<ReviewScreen />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
