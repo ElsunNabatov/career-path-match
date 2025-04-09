@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "./integrations/supabase/client";
+import { supabase } from "./lib/supabase";
 import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
 import PeopleScreen from "./components/People/PeopleScreen";
 import ChatScreen from "./components/Chat/ChatScreen";
@@ -15,6 +15,7 @@ import AppLayout from "./components/Layout/AppLayout";
 import SignInScreen from "./components/Authentication/SignInScreen";
 import SignUpScreen from "./components/Authentication/SignUpScreen";
 import VerificationScreen from "./components/Authentication/VerificationScreen";
+import ResetPasswordScreen from "./components/Authentication/ResetPasswordScreen";
 import PersonalInfoForm from "./components/Onboarding/PersonalInfoForm";
 import PreferencesForm from "./components/Onboarding/PreferencesForm";
 import ProfileScreen from "./components/Profile/ProfileScreen";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/signup" element={<SignUpScreen />} />
             <Route path="/verification" element={<VerificationScreen />} />
+            <Route path="/reset-password" element={<ResetPasswordScreen />} />
             <Route path="/onboarding" element={<OnboardingScreen />} />
             <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
             <Route path="/onboarding/preferences" element={<PreferencesForm />} />

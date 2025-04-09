@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 interface AuthContextProps {
@@ -11,6 +11,9 @@ interface AuthContextProps {
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithLinkedIn: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: any) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -26,7 +29,7 @@ export const useAuth = () => {
   return context;
 };
 
-const publicRoutes = ['/signin', '/signup', '/verification'];
+const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
 
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
@@ -176,6 +179,54 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/people',
+        }
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign in with Google');
+      throw error;
+    }
+  };
+
+  const signInWithLinkedIn = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'linkedin_oidc',
+        options: {
+          redirectTo: window.location.origin + '/people',
+          scopes: 'openid profile email',
+        }
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign in with LinkedIn');
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Password reset instructions sent to your email');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send reset instructions');
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -214,6 +265,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     isLoading,
     signIn,
     signUp,
+    signInWithGoogle,
+    signInWithLinkedIn,
+    resetPassword,
     signOut,
     updateProfile,
     refreshUser,
