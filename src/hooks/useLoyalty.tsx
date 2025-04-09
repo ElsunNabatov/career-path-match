@@ -16,7 +16,7 @@ export const useLoyalty = () => {
 
     if (error) throw error;
     
-    return (data || []).map((venue: LoyaltyVenue) => {
+    return (data || []).map((venue: any) => {
       // Calculate applicable discount based on subscription level
       let discount = venue.discount_free;
       
@@ -29,7 +29,7 @@ export const useLoyalty = () => {
       return {
         ...venue,
         applicable_discount: discount,
-      };
+      } as LoyaltyVenue & { applicable_discount: number };
     });
   };
 

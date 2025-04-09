@@ -76,7 +76,14 @@ export const useCalendar = () => {
   };
   
   // Schedule a new date
-  const scheduleDate = async (dateData: Partial<DateSchedule>) => {
+  const scheduleDate = async (dateData: {
+    match_id: string;
+    date_time: string;
+    location_name: string;
+    location_address: string;
+    type: 'coffee' | 'meal';
+    status?: string;
+  }) => {
     if (!user) throw new Error('No user logged in');
     
     const { data, error } = await supabase
@@ -102,7 +109,16 @@ export const useCalendar = () => {
   };
 
   // Submit a review for a date
-  const submitReview = async (reviewData: any) => {
+  const submitReview = async (reviewData: {
+    date_id: string;
+    reviewer_id: string;
+    reviewed_id: string;
+    punctuality_rating: number;
+    communication_rating: number;
+    overall_rating: number;
+    would_meet_again: boolean;
+    comments?: string;
+  }) => {
     const { data, error } = await supabase
       .from('reviews')
       .insert(reviewData)
