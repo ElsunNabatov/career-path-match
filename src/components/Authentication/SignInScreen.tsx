@@ -21,7 +21,7 @@ const formSchema = z.object({
 
 const SignInScreen = () => {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle, signInWithLinkedIn, resetPassword } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
@@ -45,14 +45,24 @@ const SignInScreen = () => {
     }
   };
 
-  const handleLinkedInSignIn = () => {
-    toast.info("Connecting to LinkedIn...");
-    // Implementation for LinkedIn auth would go here
+  const handleLinkedInSignIn = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithLinkedIn();
+      // OAuth redirect will happen automatically
+    } catch (error) {
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleSignIn = () => {
-    toast.info("Connecting to Google...");
-    // Implementation for Google auth would go here
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithGoogle();
+      // OAuth redirect will happen automatically
+    } catch (error) {
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -62,8 +72,16 @@ const SignInScreen = () => {
       return;
     }
     
-    toast.success("Password reset instructions sent to your email");
-    setShowForgotPassword(false);
+    try {
+      setIsLoading(true);
+      await resetPassword(resetEmail);
+      toast.success("Password reset instructions sent to your email");
+      setShowForgotPassword(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send reset instructions");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -204,8 +222,16 @@ const SignInScreen = () => {
                 <Button 
                   type="submit"
                   className="flex-1 bg-gradient-to-r from-brand-blue to-brand-purple hover:opacity-90 transition-all"
+                  disabled={isLoading}
                 >
-                  Send Instructions
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Instructions"
+                  )}
                 </Button>
               </div>
             </form>
@@ -217,6 +243,7 @@ const SignInScreen = () => {
               variant="link" 
               onClick={() => setShowForgotPassword(true)}
               className="text-brand-purple hover:text-brand-blue transition-colors"
+              disabled={isLoading}
             >
               Forgot your password?
             </Button>

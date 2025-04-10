@@ -22,7 +22,7 @@ const formSchema = z.object({
 
 const SignUpScreen = () => {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle, signInWithLinkedIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,17 +45,24 @@ const SignUpScreen = () => {
     }
   };
 
-  const handleLinkedInSignUp = () => {
-    toast.info("Connecting to LinkedIn...");
-    // LinkedIn auth would be implemented here
-    // This should request access to the LinkedIn profile
-    navigate("/verification");
+  const handleLinkedInSignUp = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithLinkedIn();
+      // OAuth redirect will happen automatically
+    } catch (error) {
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleSignUp = () => {
-    toast.info("Connecting to Google...");
-    // Google auth would be implemented here
-    navigate("/verification");
+  const handleGoogleSignUp = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithGoogle();
+      // OAuth redirect will happen automatically
+    } catch (error) {
+      setIsLoading(false);
+    }
   };
 
   return (

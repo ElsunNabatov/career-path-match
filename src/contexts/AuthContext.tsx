@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -182,11 +183,17 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/people',
+          redirectTo: `${window.location.origin}/people`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
 
       if (error) throw error;
+      
+      // Auth redirect will happen automatically, no need for navigation here
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in with Google');
       throw error;
@@ -198,12 +205,14 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
-          redirectTo: window.location.origin + '/people',
+          redirectTo: `${window.location.origin}/people`,
           scopes: 'openid profile email',
         }
       });
 
       if (error) throw error;
+      
+      // Auth redirect will happen automatically, no need for navigation here
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in with LinkedIn');
       throw error;
