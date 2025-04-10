@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -180,6 +181,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const signInWithGoogle = async () => {
     try {
       console.log('Starting Google OAuth flow');
+      
+      // Get the Supabase callback URL from the provider settings page
+      // Using the exact redirect URL format that Supabase expects
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
