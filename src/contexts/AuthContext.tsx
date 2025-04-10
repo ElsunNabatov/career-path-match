@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -184,7 +183,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/people`,
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -211,7 +210,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
-          redirectTo: `${window.location.origin}/people`,
+          redirectTo: window.location.origin,
           scopes: 'openid profile email',
         }
       });
