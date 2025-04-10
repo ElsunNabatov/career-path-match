@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,20 +46,24 @@ const SignInScreen = () => {
 
   const handleLinkedInSignIn = async () => {
     try {
+      console.log("Starting LinkedIn sign-in flow");
       setIsLoading(true);
       await signInWithLinkedIn();
       // OAuth redirect will happen automatically
     } catch (error) {
+      console.error("LinkedIn sign-in error:", error);
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     try {
+      console.log("Starting Google sign-in flow");
       setIsLoading(true);
       await signInWithGoogle();
       // OAuth redirect will happen automatically
     } catch (error) {
+      console.error("Google sign-in error:", error);
       setIsLoading(false);
     }
   };

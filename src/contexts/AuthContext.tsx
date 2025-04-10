@@ -180,6 +180,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const signInWithGoogle = async () => {
     try {
+      console.log('Starting Google OAuth flow');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -191,10 +192,14 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Google OAuth error:', error);
+        throw error;
+      }
       
       // Auth redirect will happen automatically, no need for navigation here
     } catch (error: any) {
+      console.error('Error in Google sign in:', error);
       toast.error(error.message || 'Failed to sign in with Google');
       throw error;
     }
@@ -202,6 +207,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const signInWithLinkedIn = async () => {
     try {
+      console.log('Starting LinkedIn OAuth flow');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
@@ -210,10 +216,14 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('LinkedIn OAuth error:', error);
+        throw error;
+      }
       
       // Auth redirect will happen automatically, no need for navigation here
     } catch (error: any) {
+      console.error('Error in LinkedIn sign in:', error);
       toast.error(error.message || 'Failed to sign in with LinkedIn');
       throw error;
     }
