@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase } from "@/lib/supabase";
 import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
 import PeopleScreen from "./components/People/PeopleScreen";
 import ChatScreen from "./components/Chat/ChatScreen";
