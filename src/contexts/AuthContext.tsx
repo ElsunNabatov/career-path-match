@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -69,7 +68,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         .single();
 
       if (error) {
-        // If no active subscription is found, default to free
         setSubscription('free');
         return 'free';
       }
