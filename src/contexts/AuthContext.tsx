@@ -29,6 +29,7 @@ export const useAuth = () => {
   return context;
 };
 
+// Define public routes that don't require authentication
 const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
 
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -38,6 +39,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -92,78 +94,90 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         await fetchUserProfile(data.user.id);
         await fetchUserSubscription(data.user.id);
       }
-      setIsLoading(false);
     } catch (error) {
       console.error('Error refreshing user:', error);
+    } finally {
       setIsLoading(false);
     }
   };
 
   // Helper function to handle post-auth actions
-  const handleUserAuthenticated = async (session: any) => {
+  const handleUserAuthenticated = (session: any) => {
     if (!session?.user) return;
     
     console.log("User authenticated, session:", session);
     setUser(session.user);
     
-    try {
-      await fetchUserProfile(session.user.id);
-      await fetchUserSubscription(session.user.id);
-      
-      if (publicRoutes.includes(location.pathname)) {
-        console.log("Redirecting to /people from", location.pathname);
-        navigate('/people');
+    // Use setTimeout to prevent OAuth deadlocks
+    setTimeout(async () => {
+      try {
+        await fetchUserProfile(session.user.id);
+        await fetchUserSubscription(session.user.id);
+        
+        if (publicRoutes.includes(location.pathname)) {
+          console.log("Redirecting to /people from", location.pathname);
+          navigate('/people');
+        }
+      } catch (error) {
+        console.error("Error handling authenticated user:", error);
       }
-    } catch (error) {
-      console.error("Error handling authenticated user:", error);
-    }
+    }, 0);
   };
 
   useEffect(() => {
-    const checkUser = async () => {
+    let authListener: { subscription: { unsubscribe: () => void } } | null = null;
+    
+    const initAuth = async () => {
       try {
         setIsLoading(true);
-        const { data: sessionData } = await supabase.auth.getSession();
         
-        console.log("Initial session check:", sessionData?.session ? "Session found" : "No session");
+        // First set up the auth listener before checking the session
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log("Auth state changed:", event, session ? "Session exists" : "No session");
+          
+          if (session) {
+            handleUserAuthenticated(session);
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setProfile(null);
+            setSubscription(null);
+            if (!publicRoutes.includes(location.pathname)) {
+              navigate('/signin');
+            }
+          }
+        });
         
-        if (sessionData && sessionData.session) {
-          await handleUserAuthenticated(sessionData.session);
+        authListener = data;
+        
+        // Then check for an existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Initial session check:", session ? "Session found" : "No session");
+        
+        if (session) {
+          handleUserAuthenticated(session);
         } else if (!publicRoutes.includes(location.pathname)) {
           console.log("No session, redirecting to /signin from", location.pathname);
           navigate('/signin');
         }
+        
+        setAuthInitialized(true);
       } catch (error) {
-        console.error('Error checking authentication:', error);
-        navigate('/signin');
+        console.error('Error initializing auth:', error);
+        if (!publicRoutes.includes(location.pathname)) {
+          navigate('/signin');
+        }
       } finally {
         setIsLoading(false);
       }
     };
-
-    checkUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session ? "Session exists" : "No session");
-      
-      if (event === 'SIGNED_IN' && session) {
-        await handleUserAuthenticated(session);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setProfile(null);
-        setSubscription(null);
-        navigate('/signin');
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        console.log("Token refreshed successfully");
-        await handleUserAuthenticated(session);
-      } else if (event === 'USER_UPDATED' && session) {
-        console.log("User updated successfully");
-        await handleUserAuthenticated(session);
-      }
-    });
-
+    
+    initAuth();
+    
+    // Clean up the auth listener when the component unmounts
     return () => {
-      authListener.subscription.unsubscribe();
+      if (authListener) {
+        authListener.subscription.unsubscribe();
+      }
     };
   }, [navigate, location.pathname]);
 
@@ -178,6 +192,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       if (error) throw error;
       
       toast.success('Signed in successfully!');
+      // Auth listener will handle navigation
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in');
       throw error;
@@ -210,7 +225,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     try {
       console.log('Starting Google OAuth flow');
       
-      // Use the specific Supabase callback URL format
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -312,6 +326,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       throw error;
     }
   };
+
+  // Don't render children until auth is initialized
+  if (isLoading && !authInitialized && !publicRoutes.includes(location.pathname)) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   const value = {
     user,
