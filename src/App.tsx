@@ -25,6 +25,7 @@ import LoyaltyScreen from "./components/Loyalty/LoyaltyScreen";
 import LinkedinVerificationScreen from "./components/Verification/LinkedinVerificationScreen";
 import ReviewScreen from "./components/Review/ReviewScreen";
 import LikedByScreen from "./components/People/LikedByScreen";
+import DatingAdvisorScreen from "./components/Advisor/DatingAdvisorScreen";
 import AuthProvider from "./contexts/AuthContext";
 
 const queryClient = new QueryClient({
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/premium" element={<PremiumScreen />} />
               <Route path="/payment" element={<PaymentScreen />} />
               <Route path="/loyalty" element={<LoyaltyScreen />} />
+              <Route path="/advisor" element={<DatingAdvisorScreen />} />
               <Route path="/reviews/:matchId" element={<ReviewScreen />} />
             </Route>
             

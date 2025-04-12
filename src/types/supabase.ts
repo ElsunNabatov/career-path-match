@@ -1,3 +1,4 @@
+
 export type Profile = {
   id: string;
   created_at?: string;
@@ -43,7 +44,7 @@ export type DateSchedule = {
   date_time: string;
   location_name: string;
   location_address: string;
-  type: 'coffee' | 'meal';
+  type: 'coffee' | 'meal' | 'drink';
   status: 'scheduled' | 'completed' | 'cancelled';
 };
 

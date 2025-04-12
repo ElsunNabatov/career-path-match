@@ -1,444 +1,313 @@
 
-import React, { useState } from "react";
-import { Calendar, Clock, Coffee, Sandwich, MapPin, Bell, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarUI } from "@/components/ui/calendar";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useCalendar } from "@/hooks/useCalendar";
+import React, { useState, useEffect } from "react";
+import { Calendar } from "@/components/ui/calendar";
 import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Coffee, Utensils, Wine, MapPin, Clock, Calendar as CalendarIcon, User, Star } from "lucide-react";
+import { toast } from "sonner";
+import { format, parseISO, isSameDay } from "date-fns";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DateSchedule, Profile } from "@/types/supabase";
+
+const dateTypeIcons = {
+  coffee: <Coffee className="h-4 w-4 text-amber-500" />,
+  meal: <Utensils className="h-4 w-4 text-green-500" />,
+  drink: <Wine className="h-4 w-4 text-purple-500" />,
+};
+
+type CalendarEvent = DateSchedule & {
+  otherUser?: Profile;
+};
 
 const CalendarScreen: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState("upcoming");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedTime, setSelectedTime] = useState("18:00");
-  const [selectedPlace, setSelectedPlace] = useState("coffee");
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewDateId, setReviewDateId] = useState<string | null>(null);
+  const [dates, setDates] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<"upcoming" | "past" | "all">("upcoming");
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { subscription } = useAuth();
+
+  const fetchDates = async () => {
+    try {
+      setIsLoading(true);
+      if (!user) return;
+
+      // First get all matches for the current user
+      const { data: matches, error: matchError } = await supabase
+        .from("matches")
+        .select("*")
+        .or(`user1.eq.${user.id},user2.eq.${user.id}`);
+
+      if (matchError) throw matchError;
+
+      if (!matches || matches.length === 0) {
+        setDates([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const matchIds = matches.map(match => match.id);
+
+      // Get all dates for these matches
+      const { data: datesData, error: datesError } = await supabase
+        .from("dates")
+        .select("*")
+        .in("match_id", matchIds)
+        .order("date_time", { ascending: true });
+
+      if (datesError) throw datesError;
+
+      if (!datesData || datesData.length === 0) {
+        setDates([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // For each date, get the other user's profile
+      const enhancedDates = await Promise.all(
+        datesData.map(async date => {
+          const match = matches.find(m => m.id === date.match_id);
+          if (!match) return { ...date };
+
+          const otherUserId = match.user1 === user.id ? match.user2 : match.user1;
+
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", otherUserId)
+            .single();
+
+          return {
+            ...date,
+            otherUser: profile || undefined
+          };
+        })
+      );
+
+      setDates(enhancedDates);
+    } catch (error) {
+      console.error("Error fetching dates:", error);
+      toast.error("Failed to load your calendar");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDates();
+  }, [user]);
+
+  const getDatesByView = () => {
+    const now = new Date();
+    
+    switch (view) {
+      case "upcoming":
+        return dates.filter(date => new Date(date.date_time) >= now);
+      case "past":
+        return dates.filter(date => new Date(date.date_time) < now);
+      case "all":
+      default:
+        return dates;
+    }
+  };
+
+  const filteredDates = getDatesByView();
   
-  const {
-    upcomingDates,
-    pastDates,
-    isLoadingUpcoming,
-    isLoadingPast,
-    scheduleDate,
-    cancelDate,
-    submitReview
-  } = useCalendar();
+  const datesBySelectedDate = selectedDate 
+    ? filteredDates.filter(date => 
+        isSameDay(parseISO(date.date_time), selectedDate)
+      )
+    : [];
 
-  // Date has events calculation
-  const hasEventsForDate = (date: Date) => {
-    return upcomingDates.some(
-      (event) => new Date(event.date_time).toDateString() === date.toDateString()
-    );
-  };
+  // Get all days that have events for highlighting on the calendar
+  const daysWithEvents = filteredDates.map(date => new Date(date.date_time));
 
-  const handleSchedule = () => {
-    if (!selectedDate) return;
-    
-    const dateTime = new Date(selectedDate);
-    const [hours, minutes] = selectedTime.split(':').map(Number);
-    dateTime.setHours(hours, minutes);
-    
-    // In a real app, this would be connected to a selected match
-    // For now, we'll just show a toast message
-    toast.info("To schedule a date, first select a match from the chat screen");
-  };
-
-  const handleCancelDate = (dateId: string) => {
-    cancelDate(dateId);
-  };
-
-  const handleSubmitReview = (dateId: string, rating: number, wouldMeetAgain: boolean) => {
-    // Get the date info to extract the partner's ID
-    const dateInfo = pastDates.find(date => date.id === dateId);
-    if (!dateInfo) return;
-    
-    submitReview({
-      date_id: dateId,
-      reviewer_id: dateInfo.currentUserId, // This would be the current user's ID
-      reviewed_id: dateInfo.partnerId, // The partner's ID
-      punctuality_rating: rating,
-      communication_rating: rating,
-      overall_rating: rating, 
-      would_meet_again: wouldMeetAgain
-    });
-    
-    setShowReviewForm(false);
-    setReviewDateId(null);
-  };
-
-  const handleStartReview = (dateId: string) => {
-    setReviewDateId(dateId);
-    setShowReviewForm(true);
-  };
-
-  // Content rendering for upcoming dates tab
-  const renderUpcomingTabContent = () => {
-    if (isLoadingUpcoming) {
-      return (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-        </div>
-      );
+  const getDateTypeIcon = (type: string | null) => {
+    if (!type || !dateTypeIcons[type as keyof typeof dateTypeIcons]) {
+      return <Coffee className="h-4 w-4" />;
     }
-
-    if (upcomingDates.length === 0) {
-      return (
-        <div className="text-center py-10">
-          <div className="rounded-full bg-brand-purple/10 h-16 w-16 flex items-center justify-center mx-auto mb-4">
-            <Calendar className="h-8 w-8 text-brand-purple" />
-          </div>
-          <h3 className="font-medium text-lg mb-1">No upcoming dates</h3>
-          <p className="text-gray-500">
-            Schedule a date with one of your matches
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <>
-        {upcomingDates.map((date) => (
-          <Card key={date.id} className="card-shadow mb-4">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Calendar className="h-4 w-4 text-brand-purple" />
-                    <h3 className="font-semibold">
-                      Date with {date.partnerIsAnonymous ? "Anonymous" : date.partnerName}
-                    </h3>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-gray-500" />
-                      <span>
-                        {new Date(date.date_time).toLocaleDateString(undefined, {
-                          weekday: "long",
-                          month: "long",
-                          day: "numeric",
-                        })}{" "}
-                        at{" "}
-                        {new Date(date.date_time).toLocaleTimeString(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4 text-gray-500" />
-                      <span>
-                        {date.location_name} - {date.location_address}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {date.type === "coffee" ? (
-                  <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                    <Coffee className="h-3 w-3 mr-1" />
-                    Coffee
-                  </Badge>
-                ) : (
-                  <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
-                    <Sandwich className="h-3 w-3 mr-1" />
-                    Meal
-                  </Badge>
-                )}
-              </div>
-              <div className="flex justify-end mt-4 space-x-2">
-                <Button variant="outline" size="sm">
-                  <Bell className="h-3 w-3 mr-1" />
-                  Reminder on
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-red-500 hover:text-red-600"
-                  onClick={() => handleCancelDate(date.id)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        <div className="mt-8 bg-gray-50 p-4 rounded-lg">
-          <h3 className="font-medium mb-3">Schedule a New Date</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-gray-600 mb-1 block">
-                Select Date
-              </label>
-              <div className="border rounded-md">
-                <CalendarUI
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  className="rounded-md border"
-                  modifiers={{
-                    hasEvent: (date) => hasEventsForDate(date),
-                  }}
-                  modifiersClassNames={{
-                    hasEvent: "bg-brand-purple/20 font-bold text-brand-purple",
-                  }}
-                  disabled={{
-                    before: new Date(),
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-600 mb-1 block">
-                  Time
-                </label>
-                <Select
-                  value={selectedTime}
-                  onValueChange={setSelectedTime}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="12:00">12:00 PM</SelectItem>
-                    <SelectItem value="13:00">1:00 PM</SelectItem>
-                    <SelectItem value="14:00">2:00 PM</SelectItem>
-                    <SelectItem value="18:00">6:00 PM</SelectItem>
-                    <SelectItem value="19:00">7:00 PM</SelectItem>
-                    <SelectItem value="20:00">8:00 PM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm text-gray-600 mb-1 block">
-                  Date Type
-                </label>
-                <Select
-                  value={selectedPlace}
-                  onValueChange={setSelectedPlace}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="coffee">
-                      <div className="flex items-center">
-                        <Coffee className="h-4 w-4 mr-2" />
-                        Coffee {subscription === 'premium' && "(20% discount)"}
-                        {subscription === 'premium_plus' && "(20% discount)"}
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="meal">
-                      <div className="flex items-center">
-                        <Sandwich className="h-4 w-4 mr-2" />
-                        Meal {subscription === 'premium_plus' && "(10% discount)"}
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Button
-              className="w-full bg-brand-purple hover:bg-brand-purple/90 mt-4"
-              onClick={handleSchedule}
-            >
-              Schedule Date
-            </Button>
-          </div>
-        </div>
-      </>
-    );
+    return dateTypeIcons[type as keyof typeof dateTypeIcons];
   };
 
-  // Content rendering for past dates tab
-  const renderPastTabContent = () => {
-    if (isLoadingPast) {
-      return (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-        </div>
-      );
+  const handleCancelDate = async (dateId: string) => {
+    try {
+      const { error } = await supabase
+        .from("dates")
+        .update({ status: "cancelled" })
+        .eq("id", dateId);
+
+      if (error) throw error;
+      
+      toast.success("Date cancelled successfully");
+      fetchDates();
+    } catch (error) {
+      console.error("Error cancelling date:", error);
+      toast.error("Failed to cancel date");
     }
+  };
 
-    if (showReviewForm && reviewDateId) {
-      return (
-        <div className="bg-white p-4 rounded-lg border card-shadow animate-fade-in">
-          <h3 className="font-medium text-lg mb-4">Review Your Date</h3>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-gray-600 mb-1 block">
-                How was your date treated you?
-              </label>
-              <div className="flex space-x-1 mt-1">
-                {[1, 2, 3, 4, 5].map((rating) => (
-                  <button
-                    key={rating}
-                    className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg hover:bg-brand-purple hover:text-white transition-colors"
-                    onClick={() => handleSubmitReview(reviewDateId, rating, true)}
-                  >
-                    {rating}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-sm text-gray-600 mb-1 block">
-                Would you give a chance for a second date?
-              </label>
-              <div className="flex space-x-4 mt-1">
-                <button 
-                  className="flex-1 py-2 border rounded-md hover:bg-brand-purple hover:text-white transition-colors"
-                  onClick={() => handleSubmitReview(reviewDateId, 4, true)}
-                >
-                  Yes
-                </button>
-                <button 
-                  className="flex-1 py-2 border rounded-md hover:bg-brand-purple hover:text-white transition-colors"
-                  onClick={() => handleSubmitReview(reviewDateId, 2, false)}
-                >
-                  No
-                </button>
-              </div>
-            </div>
-
-            <div className="flex space-x-2 mt-6">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowReviewForm(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (pastDates.length === 0) {
-      return (
-        <div className="text-center py-10">
-          <div className="rounded-full bg-gray-100 h-16 w-16 flex items-center justify-center mx-auto mb-4">
-            <Calendar className="h-8 w-8 text-gray-400" />
-          </div>
-          <h3 className="font-medium text-lg mb-1">No past dates</h3>
-          <p className="text-gray-500">
-            Your dating history will appear here
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <>
-        {pastDates.map((date) => (
-          <Card key={date.id} className="card-shadow mb-4">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <h3 className="font-semibold">
-                      Date with {date.partnerIsAnonymous ? "Anonymous" : date.partnerName}
-                    </h3>
-                  </div>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4" />
-                      <span>
-                        {new Date(date.date_time).toLocaleDateString(undefined, {
-                          weekday: "long",
-                          month: "long",
-                          day: "numeric",
-                        })}{" "}
-                        at{" "}
-                        {new Date(date.date_time).toLocaleTimeString(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4" />
-                      <span>
-                        {date.location_name} - {date.location_address}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                {date.type === "coffee" ? (
-                  <Badge className="bg-gray-100 text-gray-800">
-                    <Coffee className="h-3 w-3 mr-1" />
-                    Coffee
-                  </Badge>
-                ) : (
-                  <Badge className="bg-gray-100 text-gray-800">
-                    <Sandwich className="h-3 w-3 mr-1" />
-                    Meal
-                  </Badge>
-                )}
-              </div>
-
-              {!date.reviewed && (
-                <div className="mt-4">
-                  <Button
-                    className="w-full bg-brand-purple hover:bg-brand-purple/90"
-                    onClick={() => handleStartReview(date.id)}
-                  >
-                    Leave a Review
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </>
-    );
+  const handleWriteReview = (matchId: string) => {
+    navigate(`/reviews/${matchId}`);
   };
 
   return (
     <div className="pb-20">
-      <div className="px-4 py-3 border-b">
-        <h1 className="text-xl font-bold text-brand-blue">Date Calendar</h1>
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+        <h1 className="text-xl font-bold text-center text-brand-blue">Calendar</h1>
+      </div>
 
-        <Tabs
-          value={selectedTab}
-          onValueChange={setSelectedTab}
-          className="mt-4"
-        >
-          <TabsList className="grid w-full grid-cols-2">
+      <div className="p-4 space-y-4">
+        <Tabs defaultValue="upcoming" onValueChange={(value) => setView(value as any)}>
+          <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="past">Past</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
-          
-          <div className="p-4">
-            <TabsContent value="upcoming" className="mt-0 space-y-6">
-              {renderUpcomingTabContent()}
-            </TabsContent>
-
-            <TabsContent value="past" className="mt-0">
-              {renderPastTabContent()}
-            </TabsContent>
-          </div>
         </Tabs>
+
+        <Card>
+          <CardContent className="p-0 pt-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="rounded-md"
+              modifiers={{
+                event: daysWithEvents,
+              }}
+              modifiersStyles={{
+                event: { 
+                  fontWeight: "bold",
+                  backgroundColor: "rgba(147, 51, 234, 0.1)", 
+                  borderRadius: "100%" 
+                }
+              }}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">
+              {selectedDate
+                ? `Dates on ${format(selectedDate, "MMMM d, yyyy")}`
+                : "All Scheduled Dates"}
+            </h2>
+            <Badge variant="outline" className="font-normal">
+              {datesBySelectedDate.length} {datesBySelectedDate.length === 1 ? "date" : "dates"}
+            </Badge>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-[150px]" />
+                        <Skeleton className="h-4 w-[100px]" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : datesBySelectedDate.length > 0 ? (
+            <div className="space-y-3">
+              {datesBySelectedDate.map((date) => (
+                <Card key={date.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-12 w-12 border">
+                          <AvatarImage 
+                            src={date.otherUser?.photos?.[0]} 
+                            alt={date.otherUser?.full_name || "Date partner"} 
+                          />
+                          <AvatarFallback>{date.otherUser?.full_name?.charAt(0) || "U"}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h3 className="font-semibold">{date.otherUser?.full_name || "Anonymous User"}</h3>
+                          <div className="flex items-center text-sm text-gray-500">
+                            {getDateTypeIcon(date.type)}
+                            <span className="ml-1 capitalize">{date.type || "Date"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={
+                          date.status === "scheduled" ? "default" : 
+                          date.status === "completed" ? "success" : 
+                          "destructive"
+                        }
+                        className="capitalize"
+                      >
+                        {date.status}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-3 space-y-2 text-sm">
+                      <div className="flex items-center text-gray-600">
+                        <Clock className="h-4 w-4 mr-2" />
+                        {format(new Date(date.date_time), "EEEE, MMMM d • h:mm a")}
+                      </div>
+                      
+                      <div className="flex items-start text-gray-600">
+                        <MapPin className="h-4 w-4 mr-2 mt-1" />
+                        <div>
+                          <div>{date.location_name}</div>
+                          <div className="text-gray-500">{date.location_address}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end space-x-2">
+                      {date.status === "scheduled" && new Date(date.date_time) > new Date() && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleCancelDate(date.id)}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                      
+                      {date.status === "completed" && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          onClick={() => handleWriteReview(date.match_id)}
+                        >
+                          Write Review
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <CalendarIcon className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                <h3 className="text-lg font-medium">No dates scheduled</h3>
+                <p className="text-gray-500 mt-1">
+                  {selectedDate
+                    ? "There are no dates scheduled for this day"
+                    : "You don't have any dates scheduled yet"}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
