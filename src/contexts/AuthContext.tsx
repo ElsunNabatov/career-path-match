@@ -51,6 +51,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
       if (error) throw error;
       
+      console.log("Fetched user profile:", data);
       setProfile(data);
       return data;
     } catch (error) {
@@ -71,10 +72,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         .single();
 
       if (error) {
+        console.log("No active subscription found, defaulting to free");
         setSubscription('free');
         return 'free';
       }
       
+      console.log("Fetched subscription:", data);
       setSubscription(data?.plan as 'free' | 'premium' | 'premium_plus' || 'free');
       return data?.plan || 'free';
     } catch (error) {
@@ -101,29 +104,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
-  // Helper function to handle post-auth actions
-  const handleUserAuthenticated = (session: any) => {
-    if (!session?.user) return;
-    
-    console.log("User authenticated, session:", session);
-    setUser(session.user);
-    
-    // Use setTimeout to prevent OAuth deadlocks
-    setTimeout(async () => {
-      try {
-        await fetchUserProfile(session.user.id);
-        await fetchUserSubscription(session.user.id);
-        
-        if (publicRoutes.includes(location.pathname)) {
-          console.log("Redirecting to /people from", location.pathname);
-          navigate('/people');
-        }
-      } catch (error) {
-        console.error("Error handling authenticated user:", error);
-      }
-    }, 0);
-  };
-
+  // Set up auth state listener first, then check for existing session
   useEffect(() => {
     let authListener: { subscription: { unsubscribe: () => void } } | null = null;
     
@@ -131,41 +112,71 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       try {
         setIsLoading(true);
         
-        // First set up the auth listener before checking the session
-        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        // Set up the auth listener first
+        const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
           console.log("Auth state changed:", event, session ? "Session exists" : "No session");
           
-          if (session) {
-            handleUserAuthenticated(session);
+          if (event === 'SIGNED_IN' && session) {
+            console.log("User signed in:", session.user);
+            setUser(session.user);
+            
+            // Use setTimeout to prevent OAuth deadlocks
+            setTimeout(async () => {
+              if (session.user) {
+                await fetchUserProfile(session.user.id);
+                await fetchUserSubscription(session.user.id);
+              }
+              
+              const currentPath = window.location.pathname;
+              if (publicRoutes.includes(currentPath)) {
+                console.log("Redirecting to /people from", currentPath);
+                navigate('/people', { replace: true });
+              }
+            }, 0);
           } else if (event === 'SIGNED_OUT') {
+            console.log("User signed out");
             setUser(null);
             setProfile(null);
             setSubscription(null);
+            
             if (!publicRoutes.includes(location.pathname)) {
-              navigate('/signin');
+              navigate('/signin', { replace: true });
             }
+          } else if (event === 'USER_UPDATED' && session) {
+            console.log("User updated:", session.user);
+            setUser(session.user);
+            setTimeout(async () => {
+              if (session.user) {
+                await fetchUserProfile(session.user.id);
+              }
+            }, 0);
           }
         });
         
-        authListener = data;
+        authListener = listener;
         
         // Then check for an existing session
         const { data: { session } } = await supabase.auth.getSession();
         console.log("Initial session check:", session ? "Session found" : "No session");
         
         if (session) {
-          handleUserAuthenticated(session);
+          setUser(session.user);
+          
+          // Load user data asynchronously
+          setTimeout(async () => {
+            if (session.user) {
+              await fetchUserProfile(session.user.id);
+              await fetchUserSubscription(session.user.id);
+            }
+          }, 0);
         } else if (!publicRoutes.includes(location.pathname)) {
           console.log("No session, redirecting to /signin from", location.pathname);
-          navigate('/signin');
+          navigate('/signin', { replace: true });
         }
         
         setAuthInitialized(true);
       } catch (error) {
         console.error('Error initializing auth:', error);
-        if (!publicRoutes.includes(location.pathname)) {
-          navigate('/signin');
-        }
       } finally {
         setIsLoading(false);
       }
@@ -295,7 +306,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const signOut = async () => {
     try {
       setIsLoading(true);
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       setUser(null);
       setProfile(null);
       setSubscription(null);
@@ -303,6 +316,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       toast.success('Signed out successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign out');
+      console.error('Error signing out:', error);
     } finally {
       setIsLoading(false);
     }
@@ -314,24 +328,29 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, ...profileData })
-        .select();
+        .upsert({ 
+          id: user.id, 
+          ...profileData,
+          updated_at: new Date().toISOString()
+        });
 
       if (error) throw error;
       
-      await fetchUserProfile(user.id);
-      toast.success('Profile updated successfully!');
+      const updatedProfile = await fetchUserProfile(user.id);
+      toast.success('Profile updated successfully');
+      return updatedProfile;
     } catch (error: any) {
+      console.error('Error updating profile:', error);
       toast.error(error.message || 'Failed to update profile');
       throw error;
     }
   };
 
-  // Don't render children until auth is initialized
+  // Don't render children until auth is initialized for public routes
   if (isLoading && !authInitialized && !publicRoutes.includes(location.pathname)) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple"></div>
       </div>
     );
   }

@@ -34,3 +34,21 @@ export const getUserProfile = async (userId: string) => {
 
   return data;
 };
+
+// Helper function to ensure storage bucket exists
+export const ensureStorageBucket = async (bucketName: string) => {
+  try {
+    const { data, error } = await supabase.storage.getBucket(bucketName);
+    
+    if (error && error.message.includes('does not exist')) {
+      console.log(`Bucket ${bucketName} doesn't exist. This would normally be created via SQL.`);
+      // In a real app, you would use SQL migration to create the bucket
+      // For now, we'll just log it
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`Error checking bucket ${bucketName}:`, error);
+    return null;
+  }
+};

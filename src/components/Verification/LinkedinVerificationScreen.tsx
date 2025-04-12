@@ -1,11 +1,13 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, CheckCircle, XCircle, Pencil, Shield } from "lucide-react";
+import { ChevronLeft, CheckCircle, XCircle, Pencil, Shield, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 interface LinkedInDetails {
   fullName: string;
@@ -13,57 +15,133 @@ interface LinkedInDetails {
   company: string;
   education: string;
   skills: string[];
+  linkedinUrl?: string;
 }
 
 const LinkedinVerificationScreen: React.FC = () => {
   const navigate = useNavigate();
-  const [isVerified, setIsVerified] = useState(true);
+  const { user, profile, updateProfile, refreshUser } = useAuth();
+  const [isVerified, setIsVerified] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   
   const [linkedinDetails, setLinkedinDetails] = useState<LinkedInDetails>({
-    fullName: "Jane Smith",
-    jobTitle: "Senior Product Designer",
-    company: "Tech Innovations Inc.",
-    education: "BFA Design, Rhode Island School of Design",
-    skills: ["UI Design", "UX Research", "Prototyping", "Design Systems"]
+    fullName: "",
+    jobTitle: "",
+    company: "",
+    education: "",
+    skills: []
   });
   
   const [editableDetails, setEditableDetails] = useState<LinkedInDetails>({...linkedinDetails});
   
+  useEffect(() => {
+    if (profile) {
+      setIsVerified(profile.linkedin_verified || false);
+      
+      // Populate the form with profile data
+      setLinkedinDetails({
+        fullName: profile.full_name || "",
+        jobTitle: profile.job_title || "",
+        company: profile.company || "",
+        education: profile.education || "",
+        skills: profile.skills || [],
+        linkedinUrl: profile.linkedin_url || ""
+      });
+      
+      setEditableDetails({
+        fullName: profile.full_name || "",
+        jobTitle: profile.job_title || "",
+        company: profile.company || "",
+        education: profile.education || "",
+        skills: profile.skills || [],
+        linkedinUrl: profile.linkedin_url || ""
+      });
+      
+      setLinkedinUrl(profile.linkedin_url || "");
+    }
+  }, [profile]);
+  
   const handleEditToggle = () => {
     if (isEditing) {
-      // Save changes
-      setLinkedinDetails({...editableDetails});
-      toast.success("Profile details updated");
+      saveChanges();
     }
     setIsEditing(!isEditing);
   };
   
+  const saveChanges = async () => {
+    try {
+      // Update profile with LinkedIn details
+      await updateProfile({
+        full_name: editableDetails.fullName,
+        job_title: editableDetails.jobTitle,
+        company: editableDetails.company,
+        education: editableDetails.education,
+        skills: editableDetails.skills,
+        linkedin_url: editableDetails.linkedinUrl
+      });
+      
+      setLinkedinDetails({...editableDetails});
+      toast.success("Profile details updated");
+      await refreshUser();
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      toast.error(error.message || "Failed to update profile");
+    }
+  };
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditableDetails({
-      ...editableDetails,
+    setEditableDetails(prev => ({
+      ...prev,
       [name]: value
-    });
+    }));
   };
   
   const handleSkillsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const skills = e.target.value.split(',').map(skill => skill.trim());
-    setEditableDetails({
-      ...editableDetails,
+    const skills = e.target.value.split(',').map(skill => skill.trim()).filter(Boolean);
+    setEditableDetails(prev => ({
+      ...prev,
       skills
-    });
+    }));
   };
   
-  const handleVerify = () => {
-    // In a real app, this would initiate the LinkedIn OAuth flow
-    toast.info("Initiating LinkedIn verification...");
+  const handleVerify = async () => {
+    if (!linkedinUrl) {
+      toast.error("Please enter your LinkedIn profile URL");
+      return;
+    }
     
-    // Simulate successful verification
-    setTimeout(() => {
-      setIsVerified(true);
-      toast.success("LinkedIn profile verified successfully!");
-    }, 1500);
+    try {
+      setIsVerifying(true);
+      toast.info("Verifying your LinkedIn profile...");
+      
+      // In a real app, this would call a Supabase edge function to verify with LinkedIn API
+      // For now, we'll simulate a successful verification after a delay
+      setTimeout(async () => {
+        try {
+          // Update the profile with LinkedIn URL and set verified flag
+          await updateProfile({
+            linkedin_url: linkedinUrl,
+            linkedin_verified: true
+          });
+          
+          setIsVerified(true);
+          toast.success("LinkedIn profile verified successfully!");
+          await refreshUser();
+        } catch (error: any) {
+          console.error("Error updating profile:", error);
+          toast.error(error.message || "Failed to update verification status");
+        } finally {
+          setIsVerifying(false);
+        }
+      }, 2000);
+    } catch (error: any) {
+      console.error("Error during verification:", error);
+      toast.error(error.message || "Verification failed");
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -163,6 +241,22 @@ const LinkedinVerificationScreen: React.FC = () => {
             </div>
             
             <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">LinkedIn URL</label>
+              {isEditing ? (
+                <Input 
+                  name="linkedinUrl"
+                  value={editableDetails.linkedinUrl || ""}
+                  onChange={handleInputChange}
+                  placeholder="https://www.linkedin.com/in/username"
+                />
+              ) : (
+                <p className="p-2 bg-gray-50 rounded">
+                  {linkedinDetails.linkedinUrl || "Not provided"}
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Skills</label>
               {isEditing ? (
                 <Input 
@@ -174,14 +268,14 @@ const LinkedinVerificationScreen: React.FC = () => {
               ) : (
                 <div className="p-2 bg-gray-50 rounded">
                   <div className="flex flex-wrap gap-2">
-                    {linkedinDetails.skills.map((skill, index) => (
+                    {linkedinDetails.skills.length > 0 ? linkedinDetails.skills.map((skill, index) => (
                       <span 
                         key={index} 
                         className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
                       >
                         {skill}
                       </span>
-                    ))}
+                    )) : <span className="text-gray-500">No skills listed</span>}
                   </div>
                 </div>
               )}
@@ -199,7 +293,7 @@ const LinkedinVerificationScreen: React.FC = () => {
                     Your profile is verified with LinkedIn
                   </p>
                   <p className="text-xs text-blue-600 mt-0.5">
-                    Last verified on April 5, 2023
+                    Last verified on {new Date().toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -210,6 +304,21 @@ const LinkedinVerificationScreen: React.FC = () => {
             <p className="text-gray-600">
               Connect your LinkedIn profile to verify your professional information and build trust with potential matches.
             </p>
+            
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700">
+                LinkedIn Profile URL
+              </label>
+              <Input
+                type="url"
+                placeholder="https://www.linkedin.com/in/yourprofile"
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                Enter the full URL to your LinkedIn profile
+              </p>
+            </div>
             
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="font-semibold text-blue-800 mb-2">Benefits of LinkedIn Verification</h3>
@@ -236,15 +345,25 @@ const LinkedinVerificationScreen: React.FC = () => {
             <Button 
               onClick={handleVerify}
               className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
+              disabled={isVerifying || !linkedinUrl}
             >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                <rect x="2" y="2" width="20" height="20" rx="2" fill="#0A66C2" />
-                <path d="M8 10V16.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M8 6.5V7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M12 16.5V10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M16 16.5V12.5C16 11.5 15.5 10 14 10C12.5 10 12 11.5 12 12.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Connect with LinkedIn
+              {isVerifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="2" width="20" height="20" rx="2" fill="#0A66C2" />
+                    <path d="M8 10V16.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M8 6.5V7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M12 16.5V10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M16 16.5V12.5C16 11.5 15.5 10 14 10C12.5 10 12 11.5 12 12.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Connect with LinkedIn
+                </>
+              )}
             </Button>
             
             <p className="text-xs text-center text-gray-500">
