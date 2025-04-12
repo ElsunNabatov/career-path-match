@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -28,10 +29,19 @@ const ProfileScreen: React.FC = () => {
     membershipType: "Free" // Free, Premium, Premium+
   };
 
-  const handleLogout = () => {
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error signing out:', error.message);
+      return;
+    }
     toast.success("Successfully logged out");
+
+  
     navigate("/signin");
   };
+  
 
   const navigateTo = (path: string) => {
     navigate(path);
