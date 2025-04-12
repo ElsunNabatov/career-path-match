@@ -134,7 +134,7 @@ const DiscoveryScreen: React.FC = () => {
       filtered = filtered.filter(p => 
         p.full_name?.toLowerCase().includes(query) ||
         p.job_title?.toLowerCase().includes(query) ||
-        p.company?.toLowerCase().includes(query) ||
+        (p.company ? p.company.toLowerCase().includes(query) : false) ||
         p.skills?.some(skill => skill.toLowerCase().includes(query))
       );
     }

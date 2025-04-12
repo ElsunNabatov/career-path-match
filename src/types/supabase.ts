@@ -1,4 +1,3 @@
-
 export type Profile = {
   id: string;
   created_at?: string;
@@ -10,11 +9,13 @@ export type Profile = {
   bio: string;
   linkedin_verified: boolean;
   job_title?: string;
+  company?: string;
   education?: string;
   skills?: string[];
   photos?: string[];
   location?: string;
   review_score?: number;
+  linkedin_url?: string;
 };
 
 export type Match = {
