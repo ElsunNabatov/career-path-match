@@ -1,8 +1,8 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { Profile } from '@/types/supabase';
 
 interface AuthContextProps {
   user: any | null;
@@ -15,7 +15,7 @@ interface AuthContextProps {
   signInWithLinkedIn: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (data: any) => Promise<void>;
+  updateProfile: (data: any) => Promise<Profile | null>;
   refreshUser: () => Promise<void>;
 }
 
@@ -104,7 +104,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
-  // Set up auth state listener first, then check for existing session
   useEffect(() => {
     let authListener: { subscription: { unsubscribe: () => void } } | null = null;
     
@@ -112,7 +111,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       try {
         setIsLoading(true);
         
-        // Set up the auth listener first
         const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
           console.log("Auth state changed:", event, session ? "Session exists" : "No session");
           
@@ -120,7 +118,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             console.log("User signed in:", session.user);
             setUser(session.user);
             
-            // Use setTimeout to prevent OAuth deadlocks
             setTimeout(async () => {
               if (session.user) {
                 await fetchUserProfile(session.user.id);
@@ -155,14 +152,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         
         authListener = listener;
         
-        // Then check for an existing session
         const { data: { session } } = await supabase.auth.getSession();
         console.log("Initial session check:", session ? "Session found" : "No session");
         
         if (session) {
           setUser(session.user);
           
-          // Load user data asynchronously
           setTimeout(async () => {
             if (session.user) {
               await fetchUserProfile(session.user.id);
@@ -184,7 +179,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     
     initAuth();
     
-    // Clean up the auth listener when the component unmounts
     return () => {
       if (authListener) {
         authListener.subscription.unsubscribe();
@@ -203,7 +197,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       if (error) throw error;
       
       toast.success('Signed in successfully!');
-      // Auth listener will handle navigation
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in');
       throw error;
@@ -254,7 +247,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       }
       
       console.log('Google OAuth initiated, URL:', data?.url);
-      // Auth redirect will happen automatically
     } catch (error: any) {
       console.error('Error in Google sign in:', error);
       toast.error(error.message || 'Failed to sign in with Google');
@@ -280,7 +272,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       }
       
       console.log('LinkedIn OAuth initiated, URL:', data?.url);
-      // Auth redirect will happen automatically
     } catch (error: any) {
       console.error('Error in LinkedIn sign in:', error);
       toast.error(error.message || 'Failed to sign in with LinkedIn');
@@ -322,7 +313,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
-  const updateProfile = async (profileData: any) => {
+  const updateProfile = async (profileData: any): Promise<Profile | null> => {
     try {
       if (!user) throw new Error('No user logged in');
       
@@ -346,7 +337,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
-  // Don't render children until auth is initialized for public routes
   if (isLoading && !authInitialized && !publicRoutes.includes(location.pathname)) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
