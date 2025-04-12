@@ -84,14 +84,38 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const refreshUser = async () => {
     try {
+      setIsLoading(true);
       const { data } = await supabase.auth.getUser();
       if (data && data.user) {
+        console.log("Refreshed user data:", data.user);
         setUser(data.user);
         await fetchUserProfile(data.user.id);
         await fetchUserSubscription(data.user.id);
       }
+      setIsLoading(false);
     } catch (error) {
       console.error('Error refreshing user:', error);
+      setIsLoading(false);
+    }
+  };
+
+  // Helper function to handle post-auth actions
+  const handleUserAuthenticated = async (session: any) => {
+    if (!session?.user) return;
+    
+    console.log("User authenticated, session:", session);
+    setUser(session.user);
+    
+    try {
+      await fetchUserProfile(session.user.id);
+      await fetchUserSubscription(session.user.id);
+      
+      if (publicRoutes.includes(location.pathname)) {
+        console.log("Redirecting to /people from", location.pathname);
+        navigate('/people');
+      }
+    } catch (error) {
+      console.error("Error handling authenticated user:", error);
     }
   };
 
@@ -99,17 +123,14 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     const checkUser = async () => {
       try {
         setIsLoading(true);
-        const { data } = await supabase.auth.getUser();
+        const { data: sessionData } = await supabase.auth.getSession();
         
-        if (data && data.user) {
-          setUser(data.user);
-          await fetchUserProfile(data.user.id);
-          await fetchUserSubscription(data.user.id);
-          
-          if (publicRoutes.includes(location.pathname)) {
-            navigate('/people');
-          }
+        console.log("Initial session check:", sessionData?.session ? "Session found" : "No session");
+        
+        if (sessionData && sessionData.session) {
+          await handleUserAuthenticated(sessionData.session);
         } else if (!publicRoutes.includes(location.pathname)) {
+          console.log("No session, redirecting to /signin from", location.pathname);
           navigate('/signin');
         }
       } catch (error) {
@@ -123,19 +144,21 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session ? "Session exists" : "No session");
+      
       if (event === 'SIGNED_IN' && session) {
-        setUser(session.user);
-        await fetchUserProfile(session.user.id);
-        await fetchUserSubscription(session.user.id);
-        
-        if (publicRoutes.includes(location.pathname)) {
-          navigate('/people');
-        }
+        await handleUserAuthenticated(session);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setProfile(null);
         setSubscription(null);
         navigate('/signin');
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log("Token refreshed successfully");
+        await handleUserAuthenticated(session);
+      } else if (event === 'USER_UPDATED' && session) {
+        console.log("User updated successfully");
+        await handleUserAuthenticated(session);
       }
     });
 
@@ -146,6 +169,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const signIn = async (email: string, password: string) => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -154,15 +178,17 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       if (error) throw error;
       
       toast.success('Signed in successfully!');
-      navigate('/people');
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign in');
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string) => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -175,6 +201,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign up');
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -182,12 +210,11 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     try {
       console.log('Starting Google OAuth flow');
       
-      // Get the Supabase callback URL from the provider settings page
-      // Using the exact redirect URL format that Supabase expects
+      // Use the specific Supabase callback URL format
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -197,10 +224,12 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
       if (error) {
         console.error('Google OAuth error:', error);
+        toast.error(error.message || 'Failed to sign in with Google');
         throw error;
       }
       
-      // Auth redirect will happen automatically, no need for navigation here
+      console.log('Google OAuth initiated, URL:', data?.url);
+      // Auth redirect will happen automatically
     } catch (error: any) {
       console.error('Error in Google sign in:', error);
       toast.error(error.message || 'Failed to sign in with Google');
@@ -214,17 +243,19 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}`,
           scopes: 'openid profile email',
         }
       });
 
       if (error) {
         console.error('LinkedIn OAuth error:', error);
+        toast.error(error.message || 'Failed to sign in with LinkedIn');
         throw error;
       }
       
-      // Auth redirect will happen automatically, no need for navigation here
+      console.log('LinkedIn OAuth initiated, URL:', data?.url);
+      // Auth redirect will happen automatically
     } catch (error: any) {
       console.error('Error in LinkedIn sign in:', error);
       toast.error(error.message || 'Failed to sign in with LinkedIn');
@@ -249,13 +280,17 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
       setSubscription(null);
       navigate('/signin');
+      toast.success('Signed out successfully');
     } catch (error: any) {
       toast.error(error.message || 'Failed to sign out');
+    } finally {
+      setIsLoading(false);
     }
   };
 
