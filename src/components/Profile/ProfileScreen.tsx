@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -17,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, uploadFile } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -93,32 +92,11 @@ const ProfileScreen: React.FC = () => {
         return;
       }
 
-      // Create a storage bucket if it doesn't exist (this would normally be done via SQL)
-      const { data: bucketData, error: bucketError } = await supabase
-        .storage
-        .getBucket('profile_images');
-      
-      if (bucketError && bucketError.message.includes('does not exist')) {
-        // In production, this would be handled by SQL migrations
-        console.log("Bucket doesn't exist, would create via SQL migration");
-      }
-
       // Upload the file
       const fileExt = file.name.split('.').pop();
       const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from('profile_images')
-        .upload(fileName, file);
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile_images')
-        .getPublicUrl(fileName);
-
+      
+      const publicUrl = await uploadFile('profile_images', fileName, file);
       setImageUrl(publicUrl);
 
       // Update user profile with the new photo

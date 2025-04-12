@@ -38,17 +38,43 @@ export const getUserProfile = async (userId: string) => {
 // Helper function to ensure storage bucket exists
 export const ensureStorageBucket = async (bucketName: string) => {
   try {
-    const { data, error } = await supabase.storage.getBucket(bucketName);
+    // First check if bucket exists to avoid errors
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
     
-    if (error && error.message.includes('does not exist')) {
-      console.log(`Bucket ${bucketName} doesn't exist. This would normally be created via SQL.`);
-      // In a real app, you would use SQL migration to create the bucket
-      // For now, we'll just log it
+    if (!bucketExists) {
+      console.log(`Bucket ${bucketName} doesn't exist. Please create it via SQL migration.`);
+      return null;
     }
     
-    return data;
+    return { name: bucketName };
   } catch (error) {
     console.error(`Error checking bucket ${bucketName}:`, error);
     return null;
+  }
+};
+
+// Upload a file to storage
+export const uploadFile = async (bucketName: string, filePath: string, file: File) => {
+  try {
+    await ensureStorageBucket(bucketName);
+    
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+      
+    if (error) throw error;
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath);
+      
+    return publicUrl;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
   }
 };

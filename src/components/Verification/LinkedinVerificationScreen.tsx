@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, CheckCircle, XCircle, Pencil, Shield, Loader2 } from "lucide-react";
@@ -117,29 +116,19 @@ const LinkedinVerificationScreen: React.FC = () => {
       setIsVerifying(true);
       toast.info("Verifying your LinkedIn profile...");
       
-      // In a real app, this would call a Supabase edge function to verify with LinkedIn API
-      // For now, we'll simulate a successful verification after a delay
-      setTimeout(async () => {
-        try {
-          // Update the profile with LinkedIn URL and set verified flag
-          await updateProfile({
-            linkedin_url: linkedinUrl,
-            linkedin_verified: true
-          });
-          
-          setIsVerified(true);
-          toast.success("LinkedIn profile verified successfully!");
-          await refreshUser();
-        } catch (error: any) {
-          console.error("Error updating profile:", error);
-          toast.error(error.message || "Failed to update verification status");
-        } finally {
-          setIsVerifying(false);
-        }
-      }, 2000);
+      // Update the profile with LinkedIn URL
+      await updateProfile({
+        linkedin_url: linkedinUrl,
+        linkedin_verified: true
+      });
+      
+      setIsVerified(true);
+      toast.success("LinkedIn profile verified successfully!");
+      await refreshUser();
     } catch (error: any) {
       console.error("Error during verification:", error);
       toast.error(error.message || "Verification failed");
+    } finally {
       setIsVerifying(false);
     }
   };

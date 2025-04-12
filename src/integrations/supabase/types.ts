@@ -152,6 +152,7 @@ export type Database = {
         Row: {
           bio: string | null
           birthday: string | null
+          company: string | null
           created_at: string
           education: string | null
           full_name: string | null
@@ -159,6 +160,7 @@ export type Database = {
           id: string
           interested_in: string[] | null
           job_title: string | null
+          linkedin_url: string | null
           linkedin_verified: boolean | null
           location: string | null
           photos: string[] | null
@@ -169,6 +171,7 @@ export type Database = {
         Insert: {
           bio?: string | null
           birthday?: string | null
+          company?: string | null
           created_at?: string
           education?: string | null
           full_name?: string | null
@@ -176,6 +179,7 @@ export type Database = {
           id: string
           interested_in?: string[] | null
           job_title?: string | null
+          linkedin_url?: string | null
           linkedin_verified?: boolean | null
           location?: string | null
           photos?: string[] | null
@@ -186,6 +190,7 @@ export type Database = {
         Update: {
           bio?: string | null
           birthday?: string | null
+          company?: string | null
           created_at?: string
           education?: string | null
           full_name?: string | null
@@ -193,6 +198,7 @@ export type Database = {
           id?: string
           interested_in?: string[] | null
           job_title?: string | null
+          linkedin_url?: string | null
           linkedin_verified?: boolean | null
           location?: string | null
           photos?: string[] | null
