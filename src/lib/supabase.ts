@@ -78,3 +78,66 @@ export const uploadFile = async (bucketName: string, filePath: string, file: Fil
     throw error;
   }
 };
+
+// Get nearby venue recommendations for dates
+export const getNearbyVenues = async (venueType: 'coffee' | 'meal' | 'drink', radius: number = 5000) => {
+  try {
+    const { data, error } = await supabase
+      .from('loyalty_venues')
+      .select('*')
+      .eq('type', venueType)
+      .order('name');
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error getting venues:', error);
+    throw error;
+  }
+};
+
+// Send a date request to another user
+export const sendDateRequest = async (dateDetails: {
+  match_id: string;
+  date_time: string;
+  location_name: string;
+  location_address: string;
+  type: 'coffee' | 'meal' | 'drink';
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from('dates')
+      .insert({
+        ...dateDetails,
+        status: 'pending'
+      })
+      .select();
+    
+    if (error) throw error;
+    
+    return data[0];
+  } catch (error) {
+    console.error('Error sending date request:', error);
+    throw error;
+  }
+};
+
+// Accept a date request
+export const acceptDateRequest = async (dateId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('dates')
+      .update({ status: 'scheduled' })
+      .eq('id', dateId)
+      .select();
+    
+    if (error) throw error;
+    
+    return data[0];
+  } catch (error) {
+    console.error('Error accepting date request:', error);
+    throw error;
+  }
+};
+

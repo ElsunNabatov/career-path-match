@@ -1,3 +1,4 @@
+
 export type Profile = {
   id: string;
   created_at?: string;
@@ -31,6 +32,7 @@ export type Match = {
   user2: string;
   status: 'pending' | 'accepted' | 'rejected' | 'scheduled' | 'completed';
   is_anonymous?: boolean;
+  identity_revealed?: boolean;
 };
 
 export type Message = {
@@ -50,7 +52,19 @@ export type DateSchedule = {
   location_name: string;
   location_address: string;
   type: 'coffee' | 'meal' | 'drink' | string; // Allow any string but enforce our preferred types
-  status: 'scheduled' | 'completed' | 'cancelled' | string; // Allow any string but enforce our preferred statuses
+  status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | string; // Added 'pending' status for date requests
+  location_id?: string;
+};
+
+export type DateLocation = {
+  id: string;
+  name: string;
+  address: string;
+  type: 'coffee' | 'meal' | 'drink';
+  rating?: number;
+  distance?: number;
+  external_place_id?: string;
+  logo_url?: string;
 };
 
 export type Review = {
@@ -64,6 +78,7 @@ export type Review = {
   overall_rating: number;
   would_meet_again: boolean;
   comments?: string;
+  share_publicly?: boolean;
 };
 
 export type LoyaltyVenue = {
@@ -107,3 +122,12 @@ export type UserHobby = {
   user_id: string;
   hobby_id: string;
 };
+
+export type AIAdvisorInteraction = {
+  id: string;
+  user_id: string;
+  created_at: string;
+  context_type: 'people_page' | 'chat';
+  interaction_log: Record<string, any>;
+};
+

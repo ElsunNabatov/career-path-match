@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -7,12 +7,15 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { Profile } from '@/types/supabase';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface Message {
   id: string;
   sender: 'user' | 'bot';
   content: string;
   timestamp: Date;
+  wasFlagged?: boolean;
+  flagReason?: string;
 }
 
 interface AdvisorBotProps {
@@ -21,6 +24,27 @@ interface AdvisorBotProps {
   matchId?: string;
 }
 
+// Basic content filter function
+const filterInappropriateContent = (content: string): { isFlagged: boolean, reason?: string } => {
+  // Define keywords for content moderation (simplified version)
+  const sexualKeywords = ['sex', 'nude', 'naked', 'hook up', 'hookup', 'nsfw'];
+  const toxicKeywords = ['fuck', 'shit', 'bitch', 'asshole', 'idiot', 'stupid', 'hate'];
+  
+  const lowerContent = content.toLowerCase();
+  
+  // Check for sexual content
+  if (sexualKeywords.some(word => lowerContent.includes(word))) {
+    return { isFlagged: true, reason: 'sexual_content' };
+  }
+  
+  // Check for toxic language
+  if (toxicKeywords.some(word => lowerContent.includes(word))) {
+    return { isFlagged: true, reason: 'toxic_language' };
+  }
+  
+  return { isFlagged: false };
+};
+
 const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'people', matchId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,9 +52,97 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
   const [usageCount, setUsageCount] = useState(0);
   const { user, profile: userProfile } = useAuth();
   
+  // Load previous interactions from database
+  useEffect(() => {
+    if (user?.id && isOpen) {
+      loadPreviousInteractions();
+    }
+  }, [user?.id, isOpen]);
+  
+  const loadPreviousInteractions = async () => {
+    try {
+      if (!user?.id) return;
+      
+      // Get the most recent interaction for this context
+      const { data } = await supabase
+        .from('ai_advisor_interactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('context_type', context)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (data && data.length > 0 && data[0].interaction_log?.messages) {
+        // Convert stored messages back to the format we need
+        const storedMessages = data[0].interaction_log.messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        
+        setMessages(storedMessages);
+        
+        // Also load the usage count
+        setUsageCount(data[0].interaction_log.usageCount || 0);
+      } else {
+        // Initialize with a greeting if no previous messages
+        const greeting = generateGreeting();
+        setMessages([
+          {
+            id: 'greeting',
+            sender: 'bot',
+            content: greeting,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading previous interactions:', error);
+    }
+  };
+  
+  // Save interactions to the database
+  const saveInteraction = async (newMessages: Message[], newUsageCount: number) => {
+    try {
+      if (!user?.id) return;
+      
+      await supabase
+        .from('ai_advisor_interactions')
+        .insert({
+          user_id: user.id,
+          context_type: context,
+          interaction_log: {
+            messages: newMessages.map(msg => ({
+              ...msg,
+              timestamp: msg.timestamp.toISOString()
+            })),
+            usageCount: newUsageCount,
+            matchId,
+            profileId: currentProfile?.id,
+          }
+        });
+      
+      // Also log flagged messages separately if needed
+      const flaggedMessages = newMessages.filter(msg => msg.wasFlagged);
+      if (flaggedMessages.length > 0) {
+        await Promise.all(
+          flaggedMessages.map(msg => 
+            supabase.from('message_logs').insert({
+              conversation_id: matchId || 'advisor',
+              content: msg.content,
+              was_flagged: true,
+              flag_reason: msg.flagReason
+            })
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error saving interaction:', error);
+    }
+  };
+  
   const toggleBot = () => {
     if (!isOpen) {
-      // Initialize with a greeting when opening
+      // Initialize with a greeting when opening if no messages
       if (messages.length === 0) {
         const greeting = generateGreeting();
         setMessages([
@@ -70,6 +182,32 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
     
+    // Check for inappropriate content
+    const { isFlagged, reason } = filterInappropriateContent(inputValue);
+    
+    if (isFlagged) {
+      toast.error("Message contains inappropriate content", {
+        description: "Please follow our community guidelines and avoid explicit or offensive language."
+      });
+      
+      // Log flagged message but don't send it
+      const flaggedMessage: Message = {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        content: inputValue,
+        timestamp: new Date(),
+        wasFlagged: true,
+        flagReason: reason
+      };
+      
+      // Save the flagged message to the database
+      setMessages(prev => [...prev, flaggedMessage]);
+      saveInteraction([...messages, flaggedMessage], usageCount);
+      
+      setInputValue('');
+      return;
+    }
+    
     // Check if user has exceeded free usage
     const subscription = userProfile?.subscription || 'free';
     if (subscription === 'free' && usageCount >= 3) {
@@ -90,9 +228,15 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       timestamp: new Date(),
     };
     
-    setMessages((prev) => [...prev, newUserMessage]);
+    const newMessages = [...messages, newUserMessage];
+    setMessages(newMessages);
     setInputValue('');
-    setUsageCount((prev) => prev + 1);
+    
+    const newUsageCount = usageCount + 1;
+    setUsageCount(newUsageCount);
+    
+    // Save the interaction after user message
+    saveInteraction(newMessages, newUsageCount);
     
     // Simulate AI response
     setTimeout(() => {
@@ -103,7 +247,12 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
         content: botResponse,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, newBotMessage]);
+      
+      const updatedMessages = [...newMessages, newBotMessage];
+      setMessages(updatedMessages);
+      
+      // Save the interaction after bot response
+      saveInteraction(updatedMessages, newUsageCount);
     }, 1000);
   };
   
@@ -138,6 +287,11 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       
       if (lowerInput.includes('date') || lowerInput.includes('meet')) {
         return "When suggesting a meetup, be specific about place, date and time - it makes the invitation more real and easier to respond to. Based on their profile interests, a casual coffee at a unique local café might be perfect for a first meeting.";
+      }
+      
+      // Chat continuation suggestion
+      if (lowerInput.endsWith('?') || lowerInput.length < 20) {
+        return "That's a good question to ask! To keep the conversation flowing naturally, you might want to follow up by sharing something about yourself related to their answer. This creates a balanced exchange and shows you're engaged in the conversation.";
       }
     }
     

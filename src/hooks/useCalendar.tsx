@@ -1,15 +1,16 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getNearbyVenues, sendDateRequest, acceptDateRequest } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { DateSchedule } from '@/types/supabase';
+import { DateSchedule, DateLocation } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { format } from 'date-fns';
 
 export const useCalendar = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch upcoming dates
+  // Fetch upcoming dates including date requests (status = pending)
   const fetchUpcomingDates = async () => {
     if (!user) throw new Error('No user logged in');
     
@@ -31,11 +32,15 @@ export const useCalendar = () => {
       // Determine if the current user is user1 or user2
       const isUser1 = date.matches.user1 === user.id;
       const partnerProfile = isUser1 ? date.profiles_dates_user2_profile_fk : date.profiles_dates_user1_profile_fk;
+      const isInitiator = isUser1; // For now, assuming user1 is always the initiator
       
       return {
         ...date,
         partnerName: partnerProfile.full_name,
+        partnerId: isUser1 ? date.matches.user2 : date.matches.user1,
         partnerIsAnonymous: date.matches.is_anonymous && !date.matches.identity_revealed,
+        isInitiator,
+        isPending: date.status === 'pending',
       };
     });
   };
@@ -75,25 +80,62 @@ export const useCalendar = () => {
     });
   };
   
-  // Schedule a new date
+  // Fetch venue recommendations
+  const fetchVenueRecommendations = async (venueType: 'coffee' | 'meal' | 'drink', radius: number = 5000) => {
+    if (!user) throw new Error('No user logged in');
+    
+    return getNearbyVenues(venueType, radius);
+  };
+
+  // Schedule a new date with time selection
   const scheduleDate = async (dateData: {
     match_id: string;
-    date_time: string;
+    date_time: string; // Now includes both date and time
     location_name: string;
     location_address: string;
-    type: 'coffee' | 'meal';
+    type: 'coffee' | 'meal' | 'drink';
     status?: string;
   }) => {
     if (!user) throw new Error('No user logged in');
     
+    // Format date_time if needed
+    const formattedDateTime = dateData.date_time;
+    
     const { data, error } = await supabase
       .from('dates')
-      .insert(dateData)
+      .insert({
+        ...dateData,
+        date_time: formattedDateTime
+      })
       .select();
 
     if (error) throw error;
     
     return data[0];
+  };
+
+  // Send a date request
+  const sendDateInvite = async (dateData: {
+    match_id: string;
+    date_time: string;
+    location_name: string;
+    location_address: string;
+    type: 'coffee' | 'meal' | 'drink';
+  }) => {
+    if (!user) throw new Error('No user logged in');
+    
+    const result = await sendDateRequest(dateData);
+    
+    return result;
+  };
+
+  // Accept a date request
+  const acceptDateInvite = async (dateId: string) => {
+    if (!user) throw new Error('No user logged in');
+    
+    const result = await acceptDateRequest(dateId);
+    
+    return result;
   };
 
   // Cancel a date
@@ -108,6 +150,18 @@ export const useCalendar = () => {
     return { id: dateId, status: 'cancelled' };
   };
 
+  // Mark a date as completed (after the date has passed)
+  const markDateAsCompleted = async (dateId: string) => {
+    const { error } = await supabase
+      .from('dates')
+      .update({ status: 'completed' })
+      .eq('id', dateId);
+
+    if (error) throw error;
+    
+    return { id: dateId, status: 'completed' };
+  };
+
   // Submit a review for a date
   const submitReview = async (reviewData: {
     date_id: string;
@@ -118,6 +172,7 @@ export const useCalendar = () => {
     overall_rating: number;
     would_meet_again: boolean;
     comments?: string;
+    share_publicly?: boolean;
   }) => {
     const { data, error } = await supabase
       .from('reviews')
@@ -142,6 +197,13 @@ export const useCalendar = () => {
     enabled: !!user,
   });
 
+  const venueRecommendationQuery = (venueType: 'coffee' | 'meal' | 'drink', radius: number = 5000) => 
+    useQuery({
+      queryKey: ['venues', venueType, radius],
+      queryFn: () => fetchVenueRecommendations(venueType, radius),
+      enabled: !!user,
+    });
+
   const scheduleDateMutation = useMutation({
     mutationFn: scheduleDate,
     onSuccess: () => {
@@ -153,6 +215,28 @@ export const useCalendar = () => {
     },
   });
 
+  const sendDateInviteMutation = useMutation({
+    mutationFn: sendDateInvite,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingDates'] });
+      toast.success('Date invitation sent!');
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to send date invitation: ${error.message}`);
+    },
+  });
+
+  const acceptDateInviteMutation = useMutation({
+    mutationFn: acceptDateInvite,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingDates'] });
+      toast.success('Date invitation accepted!');
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to accept date invitation: ${error.message}`);
+    },
+  });
+
   const cancelDateMutation = useMutation({
     mutationFn: cancelDate,
     onSuccess: () => {
@@ -161,6 +245,18 @@ export const useCalendar = () => {
     },
     onError: (error: any) => {
       toast.error(`Failed to cancel date: ${error.message}`);
+    },
+  });
+
+  const markDateAsCompletedMutation = useMutation({
+    mutationFn: markDateAsCompleted,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['upcomingDates'] });
+      queryClient.invalidateQueries({ queryKey: ['pastDates'] });
+      toast.success('Date marked as completed');
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to mark date as completed: ${error.message}`);
     },
   });
 
@@ -180,8 +276,12 @@ export const useCalendar = () => {
     pastDates: pastDates.data || [],
     isLoadingUpcoming: upcomingDates.isLoading,
     isLoadingPast: pastDates.isLoading,
+    getVenues: venueRecommendationQuery,
     scheduleDate: scheduleDateMutation.mutate,
+    sendDateInvite: sendDateInviteMutation.mutate,
+    acceptDateInvite: acceptDateInviteMutation.mutate,
     cancelDate: cancelDateMutation.mutate,
+    markDateAsCompleted: markDateAsCompletedMutation.mutate,
     submitReview: submitReviewMutation.mutate,
     refetchUpcoming: () => queryClient.invalidateQueries({ queryKey: ['upcomingDates'] }),
     refetchPast: () => queryClient.invalidateQueries({ queryKey: ['pastDates'] }),

@@ -2,18 +2,25 @@
 import React, { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Coffee, Utensils, Wine, MapPin, Clock, Calendar as CalendarIcon, User, Star } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO, isSameDay } from "date-fns";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DateSchedule, Profile } from "@/types/supabase";
+import { useCalendar } from "@/hooks/useCalendar";
+import DateSchedulerV2 from "./DateSchedulerV2";
+import DateRequestCard from "./DateRequestCard";
 
 const dateTypeIcons = {
   coffee: <Coffee className="h-4 w-4 text-amber-500" />,
@@ -21,112 +28,63 @@ const dateTypeIcons = {
   drink: <Wine className="h-4 w-4 text-purple-500" />,
 };
 
-type CalendarEvent = DateSchedule & {
-  otherUser?: Profile;
-};
-
 const CalendarScreen: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [dates, setDates] = useState<CalendarEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [view, setView] = useState<"upcoming" | "past" | "all" | "requests">("upcoming");
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  const { 
+    upcomingDates, 
+    pastDates, 
+    isLoadingUpcoming, 
+    isLoadingPast, 
+    scheduleDate,
+    sendDateInvite,
+    acceptDateInvite,
+    cancelDate,
+    refetchUpcoming
+  } = useCalendar();
 
-  const fetchDates = async () => {
-    try {
-      setIsLoading(true);
-      if (!user) return;
-
-      // First get all matches for the current user
-      const { data: matches, error: matchError } = await supabase
-        .from("matches")
-        .select("*")
-        .or(`user1.eq.${user.id},user2.eq.${user.id}`);
-
-      if (matchError) throw matchError;
-
-      if (!matches || matches.length === 0) {
-        setDates([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const matchIds = matches.map(match => match.id);
-
-      // Get all dates for these matches
-      const { data: datesData, error: datesError } = await supabase
-        .from("dates")
-        .select("*")
-        .in("match_id", matchIds)
-        .order("date_time", { ascending: true });
-
-      if (datesError) throw datesError;
-
-      if (!datesData || datesData.length === 0) {
-        setDates([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // For each date, get the other user's profile
-      const enhancedDates = await Promise.all(
-        datesData.map(async date => {
-          const match = matches.find(m => m.id === date.match_id);
-          if (!match) return { ...date } as CalendarEvent;
-
-          const otherUserId = match.user1 === user.id ? match.user2 : match.user1;
-
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", otherUserId)
-            .single();
-
-          return {
-            ...date,
-            otherUser: profile || undefined
-          } as CalendarEvent;
-        })
-      );
-
-      setDates(enhancedDates as CalendarEvent[]);
-    } catch (error) {
-      console.error("Error fetching dates:", error);
-      toast.error("Failed to load your calendar");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDates();
-  }, [user]);
-
-  const getDatesByView = () => {
-    const now = new Date();
+  // Filter dates by selected date and view
+  const getFilteredDates = () => {
+    let filteredDates = [];
     
     switch (view) {
       case "upcoming":
-        return dates.filter(date => new Date(date.date_time) >= now);
+        filteredDates = upcomingDates.filter(date => date.status !== 'pending');
+        break;
+      case "requests":
+        filteredDates = upcomingDates.filter(date => date.status === 'pending');
+        break;
       case "past":
-        return dates.filter(date => new Date(date.date_time) < now);
+        filteredDates = pastDates;
+        break;
       case "all":
       default:
-        return dates;
+        filteredDates = [...upcomingDates, ...pastDates];
+        break;
     }
-  };
-
-  const filteredDates = getDatesByView();
-  
-  const datesBySelectedDate = selectedDate 
-    ? filteredDates.filter(date => 
+    
+    // Further filter by selected date if one is chosen
+    if (selectedDate) {
+      return filteredDates.filter(date => 
         isSameDay(parseISO(date.date_time), selectedDate)
-      )
-    : [];
+      );
+    }
+    
+    return filteredDates;
+  };
+  
+  const datesBySelectedDate = getFilteredDates();
 
   // Get all days that have events for highlighting on the calendar
-  const daysWithEvents = filteredDates.map(date => new Date(date.date_time));
+  const daysWithEvents = [
+    ...upcomingDates.map(date => new Date(date.date_time)),
+    ...pastDates.map(date => new Date(date.date_time))
+  ];
 
   const getDateTypeIcon = (type: string | null) => {
     if (!type || !dateTypeIcons[type as keyof typeof dateTypeIcons]) {
@@ -135,25 +93,45 @@ const CalendarScreen: React.FC = () => {
     return dateTypeIcons[type as keyof typeof dateTypeIcons];
   };
 
-  const handleCancelDate = async (dateId: string) => {
-    try {
-      const { error } = await supabase
-        .from("dates")
-        .update({ status: "cancelled" })
-        .eq("id", dateId);
+  const handleCancelDate = (dateId: string) => {
+    cancelDate(dateId);
+  };
 
-      if (error) throw error;
-      
-      toast.success("Date cancelled successfully");
-      fetchDates();
-    } catch (error) {
-      console.error("Error cancelling date:", error);
-      toast.error("Failed to cancel date");
-    }
+  const handleAcceptDateRequest = (dateId: string) => {
+    acceptDateInvite(dateId);
+  };
+
+  const handleDeclineDateRequest = (dateId: string) => {
+    cancelDate(dateId);
   };
 
   const handleWriteReview = (matchId: string) => {
     navigate(`/reviews/${matchId}`);
+  };
+
+  const openScheduleModal = (matchId: string) => {
+    setSelectedMatchId(matchId);
+    setIsSchedulingModalOpen(true);
+  };
+
+  const handleDateScheduleSubmit = (dateData: {
+    date_time: string;
+    location_name: string;
+    location_address: string;
+    type: 'coffee' | 'meal' | 'drink';
+  }) => {
+    if (!selectedMatchId) return;
+    
+    sendDateInvite({
+      match_id: selectedMatchId,
+      ...dateData
+    });
+    
+    setIsSchedulingModalOpen(false);
+    setSelectedMatchId(null);
+    
+    // Show a success message
+    toast.success("Date invitation sent!");
   };
 
   return (
@@ -164,8 +142,16 @@ const CalendarScreen: React.FC = () => {
 
       <div className="p-4 space-y-4">
         <Tabs defaultValue="upcoming" onValueChange={(value) => setView(value as any)}>
-          <TabsList className="grid grid-cols-3 mb-4">
+          <TabsList className="grid grid-cols-4 mb-4">
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="requests" className="relative">
+              Requests
+              {upcomingDates.filter(date => date.status === 'pending').length > 0 && (
+                <span className="absolute top-0 right-1 transform -translate-y-1/2 translate-x-1/2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {upcomingDates.filter(date => date.status === 'pending').length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="past">Past</TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
@@ -197,14 +183,20 @@ const CalendarScreen: React.FC = () => {
             <h2 className="text-lg font-semibold">
               {selectedDate
                 ? `Dates on ${format(selectedDate, "MMMM d, yyyy")}`
-                : "All Scheduled Dates"}
+                : view === "requests" 
+                  ? "Date Requests" 
+                  : view === "past" 
+                    ? "Past Dates" 
+                    : view === "upcoming" 
+                      ? "Upcoming Dates"
+                      : "All Dates"}
             </h2>
             <Badge variant="outline" className="font-normal">
               {datesBySelectedDate.length} {datesBySelectedDate.length === 1 ? "date" : "dates"}
             </Badge>
           </div>
 
-          {isLoading ? (
+          {isLoadingUpcoming || isLoadingPast ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
                 <Card key={i}>
@@ -220,6 +212,29 @@ const CalendarScreen: React.FC = () => {
                 </Card>
               ))}
             </div>
+          ) : view === "requests" ? (
+            datesBySelectedDate.length > 0 ? (
+              <div className="space-y-3">
+                {datesBySelectedDate.map((date) => (
+                  <DateRequestCard 
+                    key={date.id}
+                    date={date as any}
+                    onAccept={handleAcceptDateRequest}
+                    onDecline={handleDeclineDateRequest}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <CalendarIcon className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                  <h3 className="text-lg font-medium">No date requests</h3>
+                  <p className="text-gray-500 mt-1">
+                    You don't have any pending date requests
+                  </p>
+                </CardContent>
+              </Card>
+            )
           ) : datesBySelectedDate.length > 0 ? (
             <div className="space-y-3">
               {datesBySelectedDate.map((date) => (
@@ -229,13 +244,13 @@ const CalendarScreen: React.FC = () => {
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-12 w-12 border">
                           <AvatarImage 
-                            src={date.otherUser?.photos?.[0]} 
-                            alt={date.otherUser?.full_name || "Date partner"} 
+                            src={date.partnerPhoto} 
+                            alt={date.partnerName || "Date partner"} 
                           />
-                          <AvatarFallback>{date.otherUser?.full_name?.charAt(0) || "U"}</AvatarFallback>
+                          <AvatarFallback>{date.partnerName?.charAt(0) || "U"}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="font-semibold">{date.otherUser?.full_name || "Anonymous User"}</h3>
+                          <h3 className="font-semibold">{date.partnerIsAnonymous ? "Anonymous User" : date.partnerName}</h3>
                           <div className="flex items-center text-sm text-gray-500">
                             {getDateTypeIcon(date.type)}
                             <span className="ml-1 capitalize">{date.type || "Date"}</span>
@@ -246,6 +261,7 @@ const CalendarScreen: React.FC = () => {
                         variant={
                           date.status === "scheduled" ? "default" : 
                           date.status === "completed" ? "secondary" : 
+                          date.status === "pending" ? "outline" :
                           "destructive"
                         }
                         className="capitalize"
@@ -280,7 +296,7 @@ const CalendarScreen: React.FC = () => {
                         </Button>
                       )}
                       
-                      {date.status === "completed" && (
+                      {date.status === "completed" && !date.reviewed && (
                         <Button 
                           variant="default" 
                           size="sm"
@@ -302,13 +318,30 @@ const CalendarScreen: React.FC = () => {
                 <p className="text-gray-500 mt-1">
                   {selectedDate
                     ? "There are no dates scheduled for this day"
-                    : "You don't have any dates scheduled yet"}
+                    : view === "past"
+                      ? "You don't have any past dates yet"
+                      : view === "upcoming"
+                        ? "You don't have any upcoming dates yet"
+                        : "You don't have any dates scheduled"}
                 </p>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
+
+      {/* Date Scheduling Modal */}
+      <Dialog open={isSchedulingModalOpen} onOpenChange={setIsSchedulingModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Schedule a Date</DialogTitle>
+          </DialogHeader>
+          <DateSchedulerV2
+            onSubmit={handleDateScheduleSubmit}
+            onCancel={() => setIsSchedulingModalOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
