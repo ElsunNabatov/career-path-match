@@ -2,7 +2,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Users, MessageSquare, Calendar, User, Sparkles } from "lucide-react";
+import { Users, MessageSquare, Calendar, User, Gift } from "lucide-react";
 
 interface NavigationItem {
   icon: React.ReactNode;
@@ -34,9 +34,9 @@ const CustomBottomNavigation: React.FC<CustomBottomNavigationProps> = ({
       href: "/calendar",
     },
     {
-      icon: <Sparkles className="h-6 w-6" />,
-      label: "Advisor",
-      href: "/advisor",
+      icon: <Gift className="h-6 w-6" />,
+      label: "Loyalty",
+      href: "/loyalty",
     },
     {
       icon: <User className="h-6 w-6" />,

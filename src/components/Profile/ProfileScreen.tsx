@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -10,28 +11,38 @@ import {
   Shield, 
   Gift, 
   Upload,
-  Camera
+  Camera,
+  UserCog,
+  Eye,
+  EyeOff,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase, uploadFile } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import HobbiesSelector from "./HobbiesSelector";
 
 const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile, updateProfile, signOut, refreshUser } = useAuth();
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
   const [isEditing, setIsEditing] = useState(false);
+  const [isHobbiesDialogOpen, setIsHobbiesDialogOpen] = useState(false);
+  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(profile?.hobbies || []);
   const [editForm, setEditForm] = useState({
     full_name: "",
     job_title: "",
     company: "",
+    bio: "",
   });
+  const [isAnonymousMode, setIsAnonymousMode] = useState(profile?.is_anonymous_mode || true);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -40,12 +51,16 @@ const ProfileScreen: React.FC = () => {
         full_name: profile.full_name || "",
         job_title: profile.job_title || "",
         company: profile.company || "",
+        bio: profile.bio || "",
       });
       
       // If user has a photo in their profile, use it
       if (profile.photos && profile.photos.length > 0) {
         setImageUrl(profile.photos[0]);
       }
+
+      setSelectedHobbies(profile.hobbies || []);
+      setIsAnonymousMode(profile.is_anonymous_mode || true);
     }
   }, [profile]);
 
@@ -63,7 +78,8 @@ const ProfileScreen: React.FC = () => {
       await updateProfile({
         full_name: editForm.full_name,
         job_title: editForm.job_title,
-        company: editForm.company
+        company: editForm.company,
+        bio: editForm.bio
       });
       
       setIsEditing(false);
@@ -135,6 +151,44 @@ const ProfileScreen: React.FC = () => {
     }
   };
 
+  const handleToggleAnonymousMode = async () => {
+    try {
+      const newValue = !isAnonymousMode;
+      setIsAnonymousMode(newValue);
+      
+      await updateProfile({
+        is_anonymous_mode: newValue
+      });
+      
+      toast.success(
+        newValue 
+          ? "Anonymous mode enabled. Your personal details are now hidden." 
+          : "Anonymous mode disabled. Your profile is now fully visible."
+      );
+      
+      await refreshUser();
+    } catch (error: any) {
+      console.error("Error updating anonymous mode:", error);
+      toast.error(`Failed to update settings: ${error.message}`);
+      setIsAnonymousMode(!isAnonymousMode); // Revert the UI change
+    }
+  };
+  
+  const handleSaveHobbies = async () => {
+    try {
+      await updateProfile({
+        hobbies: selectedHobbies
+      });
+      
+      toast.success("Hobbies updated successfully!");
+      await refreshUser();
+      setIsHobbiesDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error updating hobbies:", error);
+      toast.error(`Failed to update hobbies: ${error.message}`);
+    }
+  };
+
   return (
     <div className="pb-20">
       <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
@@ -142,7 +196,7 @@ const ProfileScreen: React.FC = () => {
       </div>
 
       <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center">
             <Avatar className="h-20 w-20 border-2 border-brand-purple">
               <AvatarImage src={imageUrl || profile?.photos?.[0]} alt={profile?.full_name || "User"} />
@@ -165,6 +219,7 @@ const ProfileScreen: React.FC = () => {
                   </div>
                   <p className="text-gray-600">{profile?.job_title || "Add your title"}</p>
                   <p className="text-gray-600">{profile?.company || "Add your company"}</p>
+                  {profile?.bio && <p className="text-gray-600 mt-1 text-sm">{profile.bio}</p>}
                 </>
               ) : (
                 <form onSubmit={handleEditSubmit} className="space-y-2">
@@ -187,6 +242,13 @@ const ProfileScreen: React.FC = () => {
                     value={editForm.company}
                     onChange={handleInputChange}
                     placeholder="Company"
+                    className="text-sm"
+                  />
+                  <Input 
+                    name="bio"
+                    value={editForm.bio}
+                    onChange={handleInputChange}
+                    placeholder="Short bio"
                     className="text-sm"
                   />
                   <div className="flex gap-2 pt-1">
@@ -283,7 +345,32 @@ const ProfileScreen: React.FC = () => {
           </Dialog>
         </div>
 
-        <div className="bg-brand-purple/5 rounded-lg p-3 mt-6 flex items-center justify-between">
+        {/* Profile visibility toggle */}
+        <div className="bg-gray-50 rounded-lg p-3 mt-2 flex items-center justify-between">
+          <div className="flex items-center">
+            {isAnonymousMode ? (
+              <EyeOff className="h-5 w-5 text-gray-500 mr-2" />
+            ) : (
+              <Eye className="h-5 w-5 text-brand-purple mr-2" />
+            )}
+            <div>
+              <h3 className="font-semibold">
+                {isAnonymousMode ? "Anonymous Mode" : "Public Mode"}
+              </h3>
+              <p className="text-xs text-gray-600">
+                {isAnonymousMode ? 
+                  "Your personal details are hidden" : 
+                  "Your full profile is visible to others"}
+              </p>
+            </div>
+          </div>
+          <Switch 
+            checked={!isAnonymousMode}
+            onCheckedChange={handleToggleAnonymousMode}
+          />
+        </div>
+
+        <div className="bg-brand-purple/5 rounded-lg p-3 mt-2 flex items-center justify-between">
           <div>
             <h3 className="font-semibold">Current Plan: {profile?.subscription || "Free"}</h3>
             <p className="text-sm text-gray-600">
@@ -303,7 +390,77 @@ const ProfileScreen: React.FC = () => {
           )}
         </div>
 
-        <div className="mt-6 space-y-4">
+        {/* Hobbies section */}
+        <div className="mt-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-gray-700">Hobbies & Interests</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-brand-purple"
+              onClick={() => setIsHobbiesDialogOpen(true)}
+            >
+              Edit
+            </Button>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {selectedHobbies && selectedHobbies.length > 0 ? (
+              selectedHobbies.map((hobby) => (
+                <div 
+                  key={hobby}
+                  className="bg-gray-50 px-3 py-1 rounded-full text-sm"
+                >
+                  {hobby}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 italic">No hobbies added yet</p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-2">
+          <h3 className="font-semibold text-gray-700 px-1">My Profile</h3>
+          
+          <Button 
+            variant="ghost" 
+            className="w-full justify-between items-center flex h-auto py-3 px-4"
+            onClick={() => navigateTo('/hobbies')}
+          >
+            <div className="flex items-center">
+              <Heart className="h-5 w-5 mr-3 text-red-500" />
+              <span className="text-left">Interests & Hobbies</span>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            className="w-full justify-between items-center flex h-auto py-3 px-4"
+            onClick={() => navigateTo('/profile/preferences')}
+          >
+            <div className="flex items-center">
+              <UserCog className="h-5 w-5 mr-3 text-indigo-500" />
+              <span className="text-left">Match Preferences</span>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            className="w-full justify-between items-center flex h-auto py-3 px-4"
+            onClick={() => navigateTo('/advisor')}
+          >
+            <div className="flex items-center">
+              <Sparkles className="h-5 w-5 mr-3 text-amber-500" />
+              <span className="text-left">Dating Advisor</span>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
+          </Button>
+
+          <Separator className="my-2" />
+          
           <h3 className="font-semibold text-gray-700 px-1">Account</h3>
           
           <Button 
@@ -378,6 +535,33 @@ const ProfileScreen: React.FC = () => {
           </Button>
         </div>
       </div>
+      
+      {/* Hobbies Dialog */}
+      <Dialog open={isHobbiesDialogOpen} onOpenChange={setIsHobbiesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hobbies & Interests</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <HobbiesSelector 
+              selectedHobbies={selectedHobbies} 
+              onHobbiesChange={setSelectedHobbies}
+              maxSelections={10}
+            />
+          </div>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsHobbiesDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveHobbies}>
+              Save Hobbies
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 export type Profile = {
   id: string;
   created_at?: string;
@@ -17,6 +16,12 @@ export type Profile = {
   location?: string;
   review_score?: number;
   linkedin_url?: string;
+  orientation?: 'straight' | 'gay' | 'lesbian';
+  life_path_number?: number;
+  zodiac_sign?: string;
+  hobbies?: string[];
+  is_anonymous_mode?: boolean;
+  selfie_verified?: boolean;
 };
 
 export type Match = {
@@ -88,4 +93,17 @@ export type StickerInventory = {
   coffee_stickers: number;
   meal_stickers: number;
   updated_at: string;
+};
+
+export type Hobby = {
+  id: string;
+  name: string;
+  icon: string;
+  category?: string;
+};
+
+export type UserHobby = {
+  id: string;
+  user_id: string;
+  hobby_id: string;
 };
