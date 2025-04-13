@@ -73,7 +73,7 @@ const CalendarScreen: React.FC = () => {
       const enhancedDates = await Promise.all(
         datesData.map(async date => {
           const match = matches.find(m => m.id === date.match_id);
-          if (!match) return { ...date };
+          if (!match) return { ...date } as CalendarEvent;
 
           const otherUserId = match.user1 === user.id ? match.user2 : match.user1;
 
@@ -86,11 +86,11 @@ const CalendarScreen: React.FC = () => {
           return {
             ...date,
             otherUser: profile || undefined
-          };
+          } as CalendarEvent;
         })
       );
 
-      setDates(enhancedDates);
+      setDates(enhancedDates as CalendarEvent[]);
     } catch (error) {
       console.error("Error fetching dates:", error);
       toast.error("Failed to load your calendar");
@@ -245,7 +245,7 @@ const CalendarScreen: React.FC = () => {
                       <Badge 
                         variant={
                           date.status === "scheduled" ? "default" : 
-                          date.status === "completed" ? "success" : 
+                          date.status === "completed" ? "secondary" : 
                           "destructive"
                         }
                         className="capitalize"

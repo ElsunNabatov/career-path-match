@@ -44,8 +44,8 @@ export type DateSchedule = {
   date_time: string;
   location_name: string;
   location_address: string;
-  type: 'coffee' | 'meal' | 'drink';
-  status: 'scheduled' | 'completed' | 'cancelled';
+  type: 'coffee' | 'meal' | 'drink' | string; // Allow any string but enforce our preferred types
+  status: 'scheduled' | 'completed' | 'cancelled' | string; // Allow any string but enforce our preferred statuses
 };
 
 export type Review = {
