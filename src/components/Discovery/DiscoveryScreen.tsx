@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
@@ -106,11 +105,32 @@ const DiscoveryScreen: React.FC = () => {
       if (error) throw error;
       
       if (data) {
-        setProfiles(data);
+        // Process hobbies for each profile
+        const processedProfiles = data.map(profile => {
+          // Convert hobbies from Json to string[] if needed
+          if (profile.hobbies && !Array.isArray(profile.hobbies)) {
+            try {
+              // If it's a JSON string, parse it
+              if (typeof profile.hobbies === 'string') {
+                profile.hobbies = JSON.parse(profile.hobbies);
+              }
+              // Ensure it's an array
+              if (!Array.isArray(profile.hobbies)) {
+                profile.hobbies = [];
+              }
+            } catch (e) {
+              console.error("Error parsing hobbies for profile", profile.id, ":", e);
+              profile.hobbies = [];
+            }
+          }
+          return profile as Profile;
+        });
+        
+        setProfiles(processedProfiles);
         
         // Analyze compatibility for each profile
         const compatResults: any = {};
-        data.forEach(targetProfile => {
+        processedProfiles.forEach(targetProfile => {
           const result = CompatibilityService.analyzeCompatibility(profile, targetProfile);
           compatResults[targetProfile.id] = result;
         });

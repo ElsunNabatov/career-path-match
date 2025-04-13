@@ -51,6 +51,20 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       if (error) throw error;
       
       console.log("Fetched user profile:", data);
+      if (data && data.hobbies && !Array.isArray(data.hobbies)) {
+        try {
+          if (typeof data.hobbies === 'string') {
+            data.hobbies = JSON.parse(data.hobbies);
+          }
+          if (!Array.isArray(data.hobbies)) {
+            data.hobbies = [];
+          }
+        } catch (e) {
+          console.error("Error parsing hobbies:", e);
+          data.hobbies = [];
+        }
+      }
+      
       setProfile(data);
       return data;
     } catch (error) {
@@ -318,6 +332,10 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const updateProfile = async (profileData: any): Promise<Profile | null> => {
     try {
       if (!user) throw new Error('No user logged in');
+      
+      if (profileData.hobbies && Array.isArray(profileData.hobbies)) {
+        // Already in the correct format, no need to convert
+      }
       
       const { error } = await supabase
         .from('profiles')

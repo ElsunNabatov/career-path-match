@@ -1,3 +1,4 @@
+
 export type Profile = {
   id: string;
   created_at?: string;
@@ -19,7 +20,7 @@ export type Profile = {
   orientation?: 'straight' | 'gay' | 'lesbian';
   life_path_number?: number;
   zodiac_sign?: string;
-  hobbies?: string[];
+  hobbies?: string[] | any; // Updated to accept both string[] and Json type
   is_anonymous_mode?: boolean;
   selfie_verified?: boolean;
 };
