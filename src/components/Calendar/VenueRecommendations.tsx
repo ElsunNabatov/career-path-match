@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getNearbyVenues } from "@/lib/supabase";
@@ -7,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Coffee, MapPin, Star, Utensils, Wine } from "lucide-react";
 import { LoyaltyVenue } from "@/types/supabase";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 
 interface VenueRecommendationsProps {
   venueType: 'coffee' | 'meal' | 'drink';
@@ -17,8 +20,10 @@ interface VenueRecommendationsProps {
 const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({ 
   venueType, 
   onVenueSelect,
-  radius = 5000
+  radius: initialRadius = 5000
 }) => {
+  const [radius, setRadius] = useState<number>(initialRadius);
+  
   const { data: venues, isLoading, error } = useQuery({
     queryKey: ['venues', venueType, radius],
     queryFn: () => getNearbyVenues(venueType, radius),
@@ -69,7 +74,7 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
   }
 
   if (!venues || venues.length === 0) {
-    return <p className="text-sm text-gray-500">No venues found for this type. Try a different option.</p>;
+    return <p className="text-sm text-gray-500">No venues found for this type. Try adjusting the radius or selecting a different option.</p>;
   }
 
   const getVenueIcon = () => {
@@ -85,8 +90,29 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
     }
   };
 
+  const getDistanceText = (distance?: number) => {
+    if (!distance) return '';
+    if (distance < 1000) return `${distance}m away`;
+    return `${(distance / 1000).toFixed(1)}km away`;
+  };
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
+      <div>
+        <div className="flex justify-between items-center mb-1">
+          <Label className="text-sm">Search radius</Label>
+          <span className="text-xs text-gray-500">{(radius / 1000).toFixed(1)} km</span>
+        </div>
+        <Slider 
+          value={[radius]} 
+          min={500} 
+          max={10000} 
+          step={500} 
+          onValueChange={(values) => setRadius(values[0])} 
+          className="my-2"
+        />
+      </div>
+      
       <p className="text-sm text-gray-500">
         Select a venue for your date 
         <span className="ml-1 inline-flex items-center">
@@ -106,10 +132,10 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
                     <img 
                       src={venue.logo_url} 
                       alt={venue.name} 
-                      className="h-10 w-10 rounded-full object-cover"
+                      className="h-12 w-12 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
                       {getVenueIcon()}
                     </div>
                   )}
@@ -118,6 +144,19 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
                     <div className="flex items-center text-gray-500 text-xs">
                       <MapPin className="h-3 w-3 mr-1" />
                       <span className="truncate max-w-[150px]">{venue.address}</span>
+                    </div>
+                    <div className="flex items-center mt-1 gap-2">
+                      {venue.rating && (
+                        <span className="flex items-center text-xs text-amber-500">
+                          <Star className="h-3 w-3 fill-amber-500 mr-0.5" />
+                          {venue.rating.toFixed(1)}
+                        </span>
+                      )}
+                      {venue.distance && (
+                        <span className="text-xs text-gray-500">
+                          {getDistanceText(venue.distance)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

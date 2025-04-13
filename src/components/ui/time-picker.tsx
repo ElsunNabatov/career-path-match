@@ -7,6 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
 
 export interface TimePickerProps {
   value?: string;
@@ -45,15 +47,18 @@ export function TimePicker({
       value={value}
       onValueChange={onChange}
     >
-      <SelectTrigger className={className}>
+      <SelectTrigger className={cn("flex items-center", className)}>
+        <Clock className="mr-2 h-4 w-4 opacity-50" />
         <SelectValue placeholder="Select time" />
       </SelectTrigger>
-      <SelectContent>
-        {timeSlots.map((time) => (
-          <SelectItem key={time} value={time}>
-            {time}
-          </SelectItem>
-        ))}
+      <SelectContent className="h-[300px]">
+        <div className="max-h-[300px] overflow-auto">
+          {timeSlots.map((time) => (
+            <SelectItem key={time} value={time}>
+              {time}
+            </SelectItem>
+          ))}
+        </div>
       </SelectContent>
     </Select>
   );

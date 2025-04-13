@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { format, addDays, isBefore, isAfter } from "date-fns";
-import { Calendar as CalendarIcon, Clock, MapPin, CalendarDays, Check } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MapPin, CalendarDays, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,6 +13,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/utils";
 import VenueRecommendations from "./VenueRecommendations";
 import { LoyaltyVenue } from "@/types/supabase";
+import { Badge } from "@/components/ui/badge";
 
 interface DateSchedulerProps {
   onSubmit: (data: {
@@ -23,12 +24,14 @@ interface DateSchedulerProps {
   }) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  matchId?: string; // Added match ID for request flow
 }
 
 const DateSchedulerV2: React.FC<DateSchedulerProps> = ({ 
   onSubmit, 
   onCancel,
-  isLoading = false 
+  isLoading = false,
+  matchId 
 }) => {
   const [date, setDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [time, setTime] = useState<string>("6:00 PM");
@@ -107,7 +110,9 @@ const DateSchedulerV2: React.FC<DateSchedulerProps> = ({
     <div className="space-y-6">
       <div className="space-y-2">
         <h3 className="font-medium text-base">Schedule Date</h3>
-        <p className="text-sm text-gray-500">Pick a time to meet your match.</p>
+        <p className="text-sm text-gray-500">
+          Pick a time to {matchId ? "invite your match" : "meet"}.
+        </p>
       </div>
 
       <div className="grid gap-4">
@@ -196,6 +201,11 @@ const DateSchedulerV2: React.FC<DateSchedulerProps> = ({
                   <div className="mt-1 text-sm">
                     <p className="font-medium">{selectedVenue.name}</p>
                     <p className="text-gray-500">{selectedVenue.address}</p>
+                    {selectedVenue.discount_premium > 0 && (
+                      <Badge variant="outline" className="mt-1 bg-yellow-50 text-yellow-700 border-yellow-200">
+                        {selectedVenue.discount_premium}% off with Premium
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}
@@ -233,7 +243,7 @@ const DateSchedulerV2: React.FC<DateSchedulerProps> = ({
           onClick={handleSubmit} 
           disabled={isLoading || !isFormComplete()}
         >
-          {isLoading ? "Scheduling..." : "Schedule Date"}
+          {isLoading ? "Scheduling..." : matchId ? "Send Date Request" : "Schedule Date"}
         </Button>
       </div>
     </div>

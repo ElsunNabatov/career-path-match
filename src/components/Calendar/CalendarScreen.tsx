@@ -11,7 +11,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Coffee, Utensils, Wine, MapPin, Clock, Calendar as CalendarIcon, User, Star } from "lucide-react";
+import { Coffee, Utensils, Wine, MapPin, Clock, Calendar as CalendarIcon, User, Star, Bell, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO, isSameDay } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +33,7 @@ const CalendarScreen: React.FC = () => {
   const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [view, setView] = useState<"upcoming" | "past" | "all" | "requests">("upcoming");
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   
   const { 
@@ -45,8 +45,12 @@ const CalendarScreen: React.FC = () => {
     sendDateInvite,
     acceptDateInvite,
     cancelDate,
-    refetchUpcoming
+    refetchUpcoming,
+    refetchPast
   } = useCalendar();
+
+  // Get count of pending date requests
+  const pendingRequestsCount = upcomingDates.filter(date => date.status === 'pending').length;
 
   // Filter dates by selected date and view
   const getFilteredDates = () => {
@@ -99,10 +103,14 @@ const CalendarScreen: React.FC = () => {
 
   const handleAcceptDateRequest = (dateId: string) => {
     acceptDateInvite(dateId);
+    toast.success("Date request accepted! Event added to your calendar.", {
+      description: "You'll receive a notification reminder closer to the date."
+    });
   };
 
   const handleDeclineDateRequest = (dateId: string) => {
     cancelDate(dateId);
+    toast.info("Date request declined");
   };
 
   const handleWriteReview = (matchId: string) => {
@@ -131,8 +139,16 @@ const CalendarScreen: React.FC = () => {
     setSelectedMatchId(null);
     
     // Show a success message
-    toast.success("Date invitation sent!");
+    toast.success("Date request sent!", {
+      description: "You'll be notified when they respond."
+    });
   };
+
+  useEffect(() => {
+    // Refresh data on component mount
+    refetchUpcoming();
+    refetchPast();
+  }, [refetchUpcoming, refetchPast]);
 
   return (
     <div className="pb-20">
@@ -146,9 +162,9 @@ const CalendarScreen: React.FC = () => {
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="requests" className="relative">
               Requests
-              {upcomingDates.filter(date => date.status === 'pending').length > 0 && (
+              {pendingRequestsCount > 0 && (
                 <span className="absolute top-0 right-1 transform -translate-y-1/2 translate-x-1/2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {upcomingDates.filter(date => date.status === 'pending').length}
+                  {pendingRequestsCount}
                 </span>
               )}
             </TabsTrigger>
@@ -191,9 +207,26 @@ const CalendarScreen: React.FC = () => {
                       ? "Upcoming Dates"
                       : "All Dates"}
             </h2>
-            <Badge variant="outline" className="font-normal">
-              {datesBySelectedDate.length} {datesBySelectedDate.length === 1 ? "date" : "dates"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-normal">
+                {datesBySelectedDate.length} {datesBySelectedDate.length === 1 ? "date" : "dates"}
+              </Badge>
+              {view === "upcoming" && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="flex items-center gap-1"
+                  onClick={() => {
+                    // Navigate to matches page for now
+                    // In a real implementation, this would show a match selection UI
+                    navigate('/chat');
+                  }}
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span className="hidden sm:inline">Schedule</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           {isLoadingUpcoming || isLoadingPast ? (
@@ -227,7 +260,7 @@ const CalendarScreen: React.FC = () => {
             ) : (
               <Card>
                 <CardContent className="p-6 text-center">
-                  <CalendarIcon className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                  <Bell className="mx-auto h-12 w-12 text-gray-300 mb-3" />
                   <h3 className="text-lg font-medium">No date requests</h3>
                   <p className="text-gray-500 mt-1">
                     You don't have any pending date requests
@@ -324,6 +357,15 @@ const CalendarScreen: React.FC = () => {
                         ? "You don't have any upcoming dates yet"
                         : "You don't have any dates scheduled"}
                 </p>
+                {view === "upcoming" && (
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={() => navigate('/chat')}
+                  >
+                    Browse Matches
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -339,6 +381,7 @@ const CalendarScreen: React.FC = () => {
           <DateSchedulerV2
             onSubmit={handleDateScheduleSubmit}
             onCancel={() => setIsSchedulingModalOpen(false)}
+            matchId={selectedMatchId || undefined}
           />
         </DialogContent>
       </Dialog>

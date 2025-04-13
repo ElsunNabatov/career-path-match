@@ -67,7 +67,7 @@ const DateRequestCard: React.FC<DateRequestCardProps> = ({
           </div>
         </div>
 
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-sm bg-gray-50 p-3 rounded-md">
           <div className="flex items-center text-gray-600">
             <Calendar className="h-4 w-4 mr-2" />
             <span>{format(dateTime, "EEEE, MMMM d, yyyy")}</span>
@@ -81,7 +81,7 @@ const DateRequestCard: React.FC<DateRequestCardProps> = ({
           <div className="flex items-start text-gray-600">
             <MapPin className="h-4 w-4 mr-2 mt-1" />
             <div>
-              <div>{date.location_name}</div>
+              <div className="font-medium">{date.location_name}</div>
               <div className="text-gray-500 text-xs">{date.location_address}</div>
             </div>
           </div>
