@@ -10,7 +10,7 @@ interface AuthContextProps {
   subscription: 'free' | 'premium' | 'premium_plus' | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, profile?: any) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithLinkedIn: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -29,7 +29,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Define public routes that don't require authentication
 const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
 
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -205,12 +204,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
     }
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, profile?: any) => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: profile
+        }
       });
 
       if (error) throw error;
