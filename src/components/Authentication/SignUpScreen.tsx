@@ -29,7 +29,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-// Define the form schema with zodiac
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters" }),
@@ -73,23 +72,19 @@ const SignUpScreen = () => {
     
     setIsLoading(true);
     try {
-      // Calculate zodiac sign and life path number
       const birthDate = new Date(values.birthday);
       const zodiacSign = calculateZodiacSign(birthDate);
       const lifePathNumber = calculateLifePathNumber(birthDate);
       
-      // Include additional metadata for profile creation
       await signUp(values.email, values.password, {
-        data: {
-          full_name: "", // Will be filled from LinkedIn data
-          linkedin_url: values.linkedinUrl,
-          birthday: values.birthday,
-          orientation: values.orientation,
-          zodiac_sign: zodiacSign,
-          life_path_number: lifePathNumber,
-          selfie_verified: !!selfieCapture,
-          is_anonymous_mode: true // Default to anonymous mode
-        }
+        full_name: "", // Will be filled from LinkedIn data
+        linkedin_url: values.linkedinUrl,
+        birthday: values.birthday,
+        orientation: values.orientation,
+        zodiac_sign: zodiacSign,
+        life_path_number: lifePathNumber,
+        selfie_verified: !!selfieCapture,
+        is_anonymous_mode: true // Default to anonymous mode
       });
       
       navigate("/verification");
@@ -142,7 +137,6 @@ const SignUpScreen = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext('2d');
       if (context) {
-        // Capture the current video frame
         context.drawImage(
           videoRef.current, 
           0, 
@@ -153,7 +147,6 @@ const SignUpScreen = () => {
         const dataUrl = canvasRef.current.toDataURL('image/png');
         setSelfieCapture(dataUrl);
         
-        // Stop the camera
         const stream = videoRef.current.srcObject as MediaStream;
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
@@ -198,7 +191,6 @@ const SignUpScreen = () => {
     const day = birthday.getDate();
     const year = birthday.getFullYear();
     
-    // Calculate sum of all digits
     const sumDigits = (num: number): number => {
       let sum = 0;
       while (num > 0) {
@@ -212,7 +204,6 @@ const SignUpScreen = () => {
     let monthSum = sumDigits(month);
     let daySum = sumDigits(day);
     
-    // Reduce to single digit unless it's a master number (11, 22)
     const reduceToSingleDigit = (num: number): number => {
       while (num > 9 && num !== 11 && num !== 22) {
         num = sumDigits(num);
@@ -483,7 +474,6 @@ const SignUpScreen = () => {
         </CardFooter>
       </Card>
       
-      {/* Camera Dialog */}
       <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
