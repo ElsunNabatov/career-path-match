@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -90,9 +89,6 @@ const SignUpScreen = () => {
           life_path_number: lifePathNumber,
           selfie_verified: !!selfieCapture,
           is_anonymous_mode: true // Default to anonymous mode
-        },
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
       
