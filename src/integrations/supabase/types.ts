@@ -9,12 +9,37 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_advisor_interactions: {
+        Row: {
+          context_type: string
+          created_at: string | null
+          id: string
+          interaction_log: Json
+          user_id: string
+        }
+        Insert: {
+          context_type: string
+          created_at?: string | null
+          id?: string
+          interaction_log: Json
+          user_id: string
+        }
+        Update: {
+          context_type?: string
+          created_at?: string | null
+          id?: string
+          interaction_log?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       dates: {
         Row: {
           created_at: string
           date_time: string
           id: string
           location_address: string
+          location_id: string | null
           location_name: string
           match_id: string
           status: string | null
@@ -25,6 +50,7 @@ export type Database = {
           date_time: string
           id?: string
           location_address: string
+          location_id?: string | null
           location_name: string
           match_id: string
           status?: string | null
@@ -35,12 +61,20 @@ export type Database = {
           date_time?: string
           id?: string
           location_address?: string
+          location_id?: string | null
           location_name?: string
           match_id?: string
           status?: string | null
           type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "dates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "loyalty_venues"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dates_match_id_fkey"
             columns: ["match_id"]
@@ -113,6 +147,33 @@ export type Database = {
         }
         Relationships: []
       }
+      message_logs: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          flag_reason: string | null
+          id: string
+          was_flagged: boolean | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          flag_reason?: string | null
+          id?: string
+          was_flagged?: boolean | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          flag_reason?: string | null
+          id?: string
+          was_flagged?: boolean | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -157,8 +218,10 @@ export type Database = {
           education: string | null
           full_name: string | null
           gender: string | null
+          hobbies: Json | null
           id: string
           interested_in: string[] | null
+          is_anonymous_mode: boolean | null
           job_title: string | null
           linkedin_url: string | null
           linkedin_verified: boolean | null
@@ -176,8 +239,10 @@ export type Database = {
           education?: string | null
           full_name?: string | null
           gender?: string | null
+          hobbies?: Json | null
           id: string
           interested_in?: string[] | null
+          is_anonymous_mode?: boolean | null
           job_title?: string | null
           linkedin_url?: string | null
           linkedin_verified?: boolean | null
@@ -195,8 +260,10 @@ export type Database = {
           education?: string | null
           full_name?: string | null
           gender?: string | null
+          hobbies?: Json | null
           id?: string
           interested_in?: string[] | null
+          is_anonymous_mode?: boolean | null
           job_title?: string | null
           linkedin_url?: string | null
           linkedin_verified?: boolean | null

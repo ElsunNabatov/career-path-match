@@ -1,4 +1,3 @@
-
 export type Profile = {
   id: string;
   created_at?: string;
@@ -81,11 +80,29 @@ export type Review = {
   share_publicly?: boolean;
 };
 
+export type AIAdvisorInteraction = {
+  id: string;
+  user_id: string;
+  created_at: string;
+  context_type: 'people_page' | 'chat';
+  interaction_log: Record<string, any>;
+};
+
+export type MessageLog = {
+  id: string;
+  conversation_id: string;
+  content: string;
+  was_flagged?: boolean;
+  flag_reason?: string;
+  created_at?: string;
+};
+
+// Update LoyaltyVenue type to match the specific types
 export type LoyaltyVenue = {
   id: string;
   name: string;
   address: string;
-  type: 'coffee' | 'restaurant';
+  type: 'coffee' | 'meal' | 'drink';
   discount_free: number;
   discount_premium: number;
   discount_premium_plus: number;
@@ -122,12 +139,3 @@ export type UserHobby = {
   user_id: string;
   hobby_id: string;
 };
-
-export type AIAdvisorInteraction = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  context_type: 'people_page' | 'chat';
-  interaction_log: Record<string, any>;
-};
-

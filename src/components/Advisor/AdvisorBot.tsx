@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { Profile } from '@/types/supabase';
+import { Profile, AIAdvisorInteraction, MessageLog } from '@/types/supabase';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 
@@ -24,20 +23,16 @@ interface AdvisorBotProps {
   matchId?: string;
 }
 
-// Basic content filter function
 const filterInappropriateContent = (content: string): { isFlagged: boolean, reason?: string } => {
-  // Define keywords for content moderation (simplified version)
   const sexualKeywords = ['sex', 'nude', 'naked', 'hook up', 'hookup', 'nsfw'];
   const toxicKeywords = ['fuck', 'shit', 'bitch', 'asshole', 'idiot', 'stupid', 'hate'];
   
   const lowerContent = content.toLowerCase();
   
-  // Check for sexual content
   if (sexualKeywords.some(word => lowerContent.includes(word))) {
     return { isFlagged: true, reason: 'sexual_content' };
   }
   
-  // Check for toxic language
   if (toxicKeywords.some(word => lowerContent.includes(word))) {
     return { isFlagged: true, reason: 'toxic_language' };
   }
@@ -52,7 +47,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
   const [usageCount, setUsageCount] = useState(0);
   const { user, profile: userProfile } = useAuth();
   
-  // Load previous interactions from database
   useEffect(() => {
     if (user?.id && isOpen) {
       loadPreviousInteractions();
@@ -63,7 +57,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
     try {
       if (!user?.id) return;
       
-      // Get the most recent interaction for this context
       const { data } = await supabase
         .from('ai_advisor_interactions')
         .select('*')
@@ -72,19 +65,16 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
         .order('created_at', { ascending: false })
         .limit(1);
       
-      if (data && data.length > 0 && data[0].interaction_log?.messages) {
-        // Convert stored messages back to the format we need
-        const storedMessages = data[0].interaction_log.messages.map((msg: any) => ({
+      const interaction = data?.[0] as AIAdvisorInteraction | undefined;
+      if (interaction && interaction.interaction_log?.messages) {
+        const storedMessages = (interaction.interaction_log.messages as Message[]).map(msg => ({
           ...msg,
           timestamp: new Date(msg.timestamp)
         }));
         
         setMessages(storedMessages);
-        
-        // Also load the usage count
-        setUsageCount(data[0].interaction_log.usageCount || 0);
+        setUsageCount(interaction.interaction_log.usageCount || 0);
       } else {
-        // Initialize with a greeting if no previous messages
         const greeting = generateGreeting();
         setMessages([
           {
@@ -100,7 +90,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
     }
   };
   
-  // Save interactions to the database
   const saveInteraction = async (newMessages: Message[], newUsageCount: number) => {
     try {
       if (!user?.id) return;
@@ -121,7 +110,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
           }
         });
       
-      // Also log flagged messages separately if needed
       const flaggedMessages = newMessages.filter(msg => msg.wasFlagged);
       if (flaggedMessages.length > 0) {
         await Promise.all(
@@ -131,7 +119,7 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
               content: msg.content,
               was_flagged: true,
               flag_reason: msg.flagReason
-            })
+            } as MessageLog)
           )
         );
       }
@@ -142,7 +130,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
   
   const toggleBot = () => {
     if (!isOpen) {
-      // Initialize with a greeting when opening if no messages
       if (messages.length === 0) {
         const greeting = generateGreeting();
         setMessages([
@@ -182,7 +169,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
     
-    // Check for inappropriate content
     const { isFlagged, reason } = filterInappropriateContent(inputValue);
     
     if (isFlagged) {
@@ -190,7 +176,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
         description: "Please follow our community guidelines and avoid explicit or offensive language."
       });
       
-      // Log flagged message but don't send it
       const flaggedMessage: Message = {
         id: `user-${Date.now()}`,
         sender: 'user',
@@ -200,7 +185,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
         flagReason: reason
       };
       
-      // Save the flagged message to the database
       setMessages(prev => [...prev, flaggedMessage]);
       saveInteraction([...messages, flaggedMessage], usageCount);
       
@@ -208,7 +192,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       return;
     }
     
-    // Check if user has exceeded free usage
     const subscription = userProfile?.subscription || 'free';
     if (subscription === 'free' && usageCount >= 3) {
       toast.error("You've used all your free advisor requests", {
@@ -235,10 +218,8 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
     const newUsageCount = usageCount + 1;
     setUsageCount(newUsageCount);
     
-    // Save the interaction after user message
     saveInteraction(newMessages, newUsageCount);
     
-    // Simulate AI response
     setTimeout(() => {
       const botResponse = generateBotResponse(inputValue, currentProfile);
       const newBotMessage: Message = {
@@ -251,17 +232,13 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       const updatedMessages = [...newMessages, newBotMessage];
       setMessages(updatedMessages);
       
-      // Save the interaction after bot response
       saveInteraction(updatedMessages, newUsageCount);
     }, 1000);
   };
   
   const generateBotResponse = (userInput: string, profile?: Profile | null): string => {
-    // This is a simple simulator - in a real app, this would call a backend API
-    
     const lowerInput = userInput.toLowerCase();
     
-    // Match responses based on user query and context
     if (context === 'people' && profile) {
       if (lowerInput.includes('compatibility') || lowerInput.includes('match')) {
         return `Based on your profiles, you and ${
@@ -289,7 +266,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
         return "When suggesting a meetup, be specific about place, date and time - it makes the invitation more real and easier to respond to. Based on their profile interests, a casual coffee at a unique local café might be perfect for a first meeting.";
       }
       
-      // Chat continuation suggestion
       if (lowerInput.endsWith('?') || lowerInput.length < 20) {
         return "That's a good question to ask! To keep the conversation flowing naturally, you might want to follow up by sharing something about yourself related to their answer. This creates a balanced exchange and shows you're engaged in the conversation.";
       }
@@ -305,7 +281,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       }
     }
     
-    // Generic responses
     const genericResponses = [
       "That's an interesting question! Based on your compatibility, I'd suggest focusing on shared professional interests when you meet.",
       "Great question! Your zodiac signs suggest you might connect over creative or intellectual pursuits. Perhaps mention your favorite book or podcast?",
@@ -318,7 +293,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
 
   return (
     <>
-      {/* Floating button */}
       <Button
         onClick={toggleBot}
         className={`fixed z-40 flex items-center justify-center rounded-full shadow-lg transition-all duration-300 ${
@@ -333,7 +307,6 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
         )}
       </Button>
 
-      {/* Chat panel */}
       {isOpen && (
         <div className="fixed bottom-20 right-4 z-30 w-80 h-[300px] bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col">
           <div className="p-3 bg-gradient-to-r from-brand-blue to-brand-purple text-white rounded-t-lg flex items-center justify-between">

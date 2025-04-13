@@ -1,5 +1,5 @@
-
 import { supabase } from '@/lib/supabase';
+import { MessageLog } from '@/types/supabase';
 
 export interface DateSchedule {
   match_id: string;
@@ -62,7 +62,7 @@ export const ChatService = {
           content,
           was_flagged: true,
           flag_reason: reason
-        });
+        } as MessageLog);
         
       throw new Error(`Message contains inappropriate content: ${reason}`);
     }
@@ -166,5 +166,28 @@ export const ChatService = {
     }
     
     return data;
-  }
+  },
+  
+  // Moderated content logging method
+  logFlaggedMessage: async (matchId: string, content: string, reason?: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('message_logs')
+        .insert({
+          conversation_id: matchId,
+          content,
+          was_flagged: true,
+          flag_reason: reason
+        } as MessageLog);
+      
+      if (error) throw error;
+      
+      return data;
+    } catch (error) {
+      console.error('Error logging flagged message:', error);
+      throw error;
+    }
+  },
 };
+
+export default ChatService;

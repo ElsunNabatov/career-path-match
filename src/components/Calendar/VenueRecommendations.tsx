@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getNearbyVenues } from "@/lib/supabase";
@@ -7,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Coffee, MapPin, Star, Utensils, Wine } from "lucide-react";
-import { LoyaltyVenue, DateLocation } from "@/types/supabase";
+import { LoyaltyVenue } from "@/types/supabase";
 
 interface VenueRecommendationsProps {
   venueType: 'coffee' | 'meal' | 'drink';
@@ -24,6 +23,20 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
     queryKey: ['venues', venueType, radius],
     queryFn: () => getNearbyVenues(venueType, radius),
   });
+
+  const handleVenueSelect = (venue: any) => {
+    const convertedVenue: LoyaltyVenue = {
+      id: venue.id,
+      name: venue.name,
+      address: venue.address,
+      type: venueType,
+      discount_free: venue.discount_free || 0,
+      discount_premium: venue.discount_premium || 0,
+      discount_premium_plus: venue.discount_premium_plus || 0,
+      logo_url: venue.logo_url
+    };
+    onVenueSelect(convertedVenue);
+  };
 
   if (isLoading) {
     return (
@@ -86,7 +99,7 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
             <CardContent className="p-0">
               <button 
                 className="p-3 w-full flex justify-between items-center text-left" 
-                onClick={() => onVenueSelect(venue)}
+                onClick={() => handleVenueSelect(venue)}
               >
                 <div className="flex items-center gap-3">
                   {venue.logo_url ? (
