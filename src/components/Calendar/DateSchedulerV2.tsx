@@ -134,6 +134,7 @@ const DateSchedulerV2: React.FC<DateSchedulerProps> = ({
         <Button 
           onClick={handleSubmit} 
           disabled={isLoading || !isFormComplete()}
+          className="bg-brand-blue hover:bg-brand-blue/90"
         >
           {isLoading ? "Scheduling..." : matchId ? "Send Date Request" : "Schedule Date"}
         </Button>

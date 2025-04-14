@@ -126,7 +126,7 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
           {getVenueIcon()}
         </span>
       </p>
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto">
         {(venues as VenueWithDetails[]).map((venue) => (
           <Card key={venue.id} className="overflow-hidden hover:shadow-md transition-shadow">
             <CardContent className="p-0">
