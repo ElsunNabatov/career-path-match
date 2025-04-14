@@ -1,39 +1,26 @@
 
 import React, { useState, useEffect } from "react";
-import { Calendar } from "@/components/ui/calendar";
 import { useNavigate } from "react-router-dom";
+import { isSameDay, parseISO } from "date-fns";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Coffee, Utensils, Wine, MapPin, Clock, Calendar as CalendarIcon, User, Star, Bell, PlusCircle } from "lucide-react";
-import { toast } from "sonner";
-import { format, parseISO, isSameDay } from "date-fns";
-import { useAuth } from "@/contexts/AuthContext";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useCalendar } from "@/hooks/useCalendar";
 import DateSchedulerV2 from "./DateSchedulerV2";
-import DateRequestCard from "./DateRequestCard";
-
-const dateTypeIcons = {
-  coffee: <Coffee className="h-4 w-4 text-amber-500" />,
-  meal: <Utensils className="h-4 w-4 text-green-500" />,
-  drink: <Wine className="h-4 w-4 text-purple-500" />,
-};
+import CalendarView from "./CalendarView";
+import CalendarDatesList from "./CalendarDatesList";
+import DateHeader from "./DateHeader";
 
 const CalendarScreen: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [view, setView] = useState<"upcoming" | "past" | "all" | "requests">("upcoming");
-  const { user, profile } = useAuth();
   const navigate = useNavigate();
   
   const { 
@@ -41,7 +28,6 @@ const CalendarScreen: React.FC = () => {
     pastDates, 
     isLoadingUpcoming, 
     isLoadingPast, 
-    scheduleDate,
     sendDateInvite,
     acceptDateInvite,
     cancelDate,
@@ -89,13 +75,6 @@ const CalendarScreen: React.FC = () => {
     ...upcomingDates.map(date => new Date(date.date_time)),
     ...pastDates.map(date => new Date(date.date_time))
   ];
-
-  const getDateTypeIcon = (type: string | null) => {
-    if (!type || !dateTypeIcons[type as keyof typeof dateTypeIcons]) {
-      return <Coffee className="h-4 w-4" />;
-    }
-    return dateTypeIcons[type as keyof typeof dateTypeIcons];
-  };
 
   const handleCancelDate = (dateId: string) => {
     cancelDate(dateId);
@@ -173,202 +152,29 @@ const CalendarScreen: React.FC = () => {
           </TabsList>
         </Tabs>
 
-        <Card>
-          <CardContent className="p-0 pt-4">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="rounded-md"
-              modifiers={{
-                event: daysWithEvents,
-              }}
-              modifiersStyles={{
-                event: { 
-                  fontWeight: "bold",
-                  backgroundColor: "rgba(147, 51, 234, 0.1)", 
-                  borderRadius: "100%" 
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
+        <CalendarView 
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          daysWithEvents={daysWithEvents}
+        />
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">
-              {selectedDate
-                ? `Dates on ${format(selectedDate, "MMMM d, yyyy")}`
-                : view === "requests" 
-                  ? "Date Requests" 
-                  : view === "past" 
-                    ? "Past Dates" 
-                    : view === "upcoming" 
-                      ? "Upcoming Dates"
-                      : "All Dates"}
-            </h2>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-normal">
-                {datesBySelectedDate.length} {datesBySelectedDate.length === 1 ? "date" : "dates"}
-              </Badge>
-              {view === "upcoming" && (
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="flex items-center gap-1"
-                  onClick={() => {
-                    // Navigate to matches page for now
-                    // In a real implementation, this would show a match selection UI
-                    navigate('/chat');
-                  }}
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span className="hidden sm:inline">Schedule</span>
-                </Button>
-              )}
-            </div>
-          </div>
+          <DateHeader 
+            selectedDate={selectedDate}
+            view={view}
+            dateCount={datesBySelectedDate.length}
+          />
 
-          {isLoadingUpcoming || isLoadingPast ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <Card key={i}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-[150px]" />
-                        <Skeleton className="h-4 w-[100px]" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : view === "requests" ? (
-            datesBySelectedDate.length > 0 ? (
-              <div className="space-y-3">
-                {datesBySelectedDate.map((date) => (
-                  <DateRequestCard 
-                    key={date.id}
-                    date={date as any}
-                    onAccept={handleAcceptDateRequest}
-                    onDecline={handleDeclineDateRequest}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <Bell className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                  <h3 className="text-lg font-medium">No date requests</h3>
-                  <p className="text-gray-500 mt-1">
-                    You don't have any pending date requests
-                  </p>
-                </CardContent>
-              </Card>
-            )
-          ) : datesBySelectedDate.length > 0 ? (
-            <div className="space-y-3">
-              {datesBySelectedDate.map((date) => (
-                <Card key={date.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-12 w-12 border">
-                          <AvatarImage 
-                            src={date.partnerPhoto} 
-                            alt={date.partnerName || "Date partner"} 
-                          />
-                          <AvatarFallback>{date.partnerName?.charAt(0) || "U"}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h3 className="font-semibold">{date.partnerIsAnonymous ? "Anonymous User" : date.partnerName}</h3>
-                          <div className="flex items-center text-sm text-gray-500">
-                            {getDateTypeIcon(date.type)}
-                            <span className="ml-1 capitalize">{date.type || "Date"}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge 
-                        variant={
-                          date.status === "scheduled" ? "default" : 
-                          date.status === "completed" ? "secondary" : 
-                          date.status === "pending" ? "outline" :
-                          "destructive"
-                        }
-                        className="capitalize"
-                      >
-                        {date.status}
-                      </Badge>
-                    </div>
-
-                    <div className="mt-3 space-y-2 text-sm">
-                      <div className="flex items-center text-gray-600">
-                        <Clock className="h-4 w-4 mr-2" />
-                        {format(new Date(date.date_time), "EEEE, MMMM d • h:mm a")}
-                      </div>
-                      
-                      <div className="flex items-start text-gray-600">
-                        <MapPin className="h-4 w-4 mr-2 mt-1" />
-                        <div>
-                          <div>{date.location_name}</div>
-                          <div className="text-gray-500">{date.location_address}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex justify-end space-x-2">
-                      {date.status === "scheduled" && new Date(date.date_time) > new Date() && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleCancelDate(date.id)}
-                        >
-                          Cancel
-                        </Button>
-                      )}
-                      
-                      {date.status === "completed" && !date.reviewed && (
-                        <Button 
-                          variant="default" 
-                          size="sm"
-                          onClick={() => handleWriteReview(date.match_id)}
-                        >
-                          Write Review
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <CalendarIcon className="mx-auto h-12 w-12 text-gray-300 mb-3" />
-                <h3 className="text-lg font-medium">No dates scheduled</h3>
-                <p className="text-gray-500 mt-1">
-                  {selectedDate
-                    ? "There are no dates scheduled for this day"
-                    : view === "past"
-                      ? "You don't have any past dates yet"
-                      : view === "upcoming"
-                        ? "You don't have any upcoming dates yet"
-                        : "You don't have any dates scheduled"}
-                </p>
-                {view === "upcoming" && (
-                  <Button 
-                    variant="outline" 
-                    className="mt-4"
-                    onClick={() => navigate('/chat')}
-                  >
-                    Browse Matches
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <CalendarDatesList 
+            view={view}
+            dates={datesBySelectedDate}
+            selectedDate={selectedDate}
+            isLoading={isLoadingUpcoming || isLoadingPast}
+            onAcceptDateRequest={handleAcceptDateRequest}
+            onDeclineDateRequest={handleDeclineDateRequest}
+            onCancelDate={handleCancelDate}
+            onWriteReview={handleWriteReview}
+          />
         </div>
       </div>
 
