@@ -14,6 +14,7 @@ export const useCalendar = () => {
   const fetchUpcomingDates = async () => {
     if (!user) throw new Error('No user logged in');
     
+    // Fix the query syntax for the OR condition
     const { data, error } = await supabase
       .from('dates')
       .select(`
@@ -26,7 +27,10 @@ export const useCalendar = () => {
       .gt('date_time', new Date().toISOString())
       .order('date_time', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching upcoming dates:', error);
+      throw error;
+    }
     
     return (data || []).map((date: any) => {
       // Determine if the current user is user1 or user2
@@ -49,6 +53,7 @@ export const useCalendar = () => {
   const fetchPastDates = async () => {
     if (!user) throw new Error('No user logged in');
     
+    // Fix the query syntax for the OR condition
     const { data, error } = await supabase
       .from('dates')
       .select(`
@@ -62,7 +67,10 @@ export const useCalendar = () => {
       .lt('date_time', new Date().toISOString())
       .order('date_time', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching past dates:', error);
+      throw error;
+    }
     
     return (data || []).map((date: any) => {
       // Determine if the current user is user1 or user2

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getNearbyVenues } from "@/lib/supabase";
@@ -20,12 +19,14 @@ interface VenueWithDetails extends LoyaltyVenue {
 interface VenueRecommendationsProps {
   venueType: 'coffee' | 'meal' | 'drink';
   onVenueSelect: (venue: LoyaltyVenue) => void;
+  selectedVenue?: LoyaltyVenue | null;
   radius?: number;
 }
 
 const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({ 
   venueType, 
   onVenueSelect,
+  selectedVenue,
   radius: initialRadius = 5000
 }) => {
   const [radius, setRadius] = useState<number>(initialRadius);
@@ -128,7 +129,12 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
       </p>
       <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto">
         {(venues as VenueWithDetails[]).map((venue) => (
-          <Card key={venue.id} className="overflow-hidden hover:shadow-md transition-shadow">
+          <Card 
+            key={venue.id} 
+            className={`overflow-hidden hover:shadow-md transition-shadow ${
+              selectedVenue?.id === venue.id ? 'ring-2 ring-purple-500' : ''
+            }`}
+          >
             <CardContent className="p-0">
               <button 
                 className="p-3 w-full flex justify-between items-center text-left" 
