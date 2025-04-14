@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { isSameDay, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { CalendarPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { useCalendar } from "@/hooks/useCalendar";
 import DateSchedulerV2 from "./DateSchedulerV2";
 import CalendarView from "./CalendarView";
@@ -131,8 +133,16 @@ const CalendarScreen: React.FC = () => {
 
   return (
     <div className="pb-20">
-      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b flex justify-between items-center">
         <h1 className="text-xl font-bold text-center text-brand-blue">Calendar</h1>
+        <Button 
+          onClick={() => navigate("/calendar/schedule")}
+          className="bg-brand-blue hover:bg-brand-blue/90"
+          size="sm"
+        >
+          <CalendarPlus className="h-4 w-4 mr-1" />
+          Schedule Date
+        </Button>
       </div>
 
       <div className="p-4 space-y-4">

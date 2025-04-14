@@ -10,6 +10,7 @@ import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
 import PeopleScreen from "./components/People/PeopleScreen";
 import ChatScreen from "./components/Chat/ChatScreen";
 import CalendarScreen from "./components/Calendar/CalendarScreen";
+import SchedulePage from "./components/Calendar/SchedulePage";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/Layout/AppLayout";
 import SignInScreen from "./components/Authentication/SignInScreen";
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/people/liked-by" element={<LikedByScreen />} />
               <Route path="/chats" element={<ChatScreen />} />
               <Route path="/calendar" element={<CalendarScreen />} />
+              <Route path="/calendar/schedule" element={<SchedulePage />} />
               <Route path="/profile" element={<ProfileScreen />} />
               <Route path="/premium" element={<PremiumScreen />} />
               <Route path="/payment" element={<PaymentScreen />} />

@@ -72,13 +72,20 @@ const CalendarDatesList: React.FC<CalendarDatesListProps> = ({
             showButton: true,
             buttonText: "Browse Matches"
           };
+        case "all":
+          return {
+            icon: Calendar,
+            title: "No dates scheduled",
+            description: "You don't have any dates scheduled",
+            showButton: true,
+            buttonText: "Browse Matches"
+          };
         default:
           return {
             icon: Calendar,
             title: "No dates scheduled",
             description: "You don't have any dates scheduled",
-            showButton: view === "upcoming" || view === "all",
-            buttonText: "Browse Matches"
+            showButton: false
           };
       }
     };
