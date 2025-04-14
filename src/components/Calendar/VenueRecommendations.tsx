@@ -11,6 +11,12 @@ import { LoyaltyVenue } from "@/types/supabase";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
+// Extend LoyaltyVenue type to include optional properties returned by API but not in base type
+interface VenueWithDetails extends LoyaltyVenue {
+  rating?: number;
+  distance?: number;
+}
+
 interface VenueRecommendationsProps {
   venueType: 'coffee' | 'meal' | 'drink';
   onVenueSelect: (venue: LoyaltyVenue) => void;
@@ -29,7 +35,8 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
     queryFn: () => getNearbyVenues(venueType, radius),
   });
 
-  const handleVenueSelect = (venue: any) => {
+  const handleVenueSelect = (venue: VenueWithDetails) => {
+    // Extract only the properties defined in LoyaltyVenue
     const convertedVenue: LoyaltyVenue = {
       id: venue.id,
       name: venue.name,
@@ -120,7 +127,7 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
         </span>
       </p>
       <div className="grid grid-cols-1 gap-2">
-        {venues.map((venue) => (
+        {(venues as VenueWithDetails[]).map((venue) => (
           <Card key={venue.id} className="overflow-hidden hover:shadow-md transition-shadow">
             <CardContent className="p-0">
               <button 
@@ -146,13 +153,13 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
                       <span className="truncate max-w-[150px]">{venue.address}</span>
                     </div>
                     <div className="flex items-center mt-1 gap-2">
-                      {venue.rating && (
+                      {venue.rating !== undefined && (
                         <span className="flex items-center text-xs text-amber-500">
                           <Star className="h-3 w-3 fill-amber-500 mr-0.5" />
                           {venue.rating.toFixed(1)}
                         </span>
                       )}
-                      {venue.distance && (
+                      {venue.distance !== undefined && (
                         <span className="text-xs text-gray-500">
                           {getDistanceText(venue.distance)}
                         </span>
