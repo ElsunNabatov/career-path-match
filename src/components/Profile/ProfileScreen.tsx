@@ -1,397 +1,482 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Search, SlidersHorizontal, Heart, MapPin, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { Edit, Check, User, EyeOff, Eye, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import ProfileCard from "../Profile/ProfileCard";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import PhotoUpload from "./PhotoUpload";
-import HobbiesSelector from "./HobbiesSelector";
+import AdvisorBot from "../Advisor/AdvisorBot";
+import CompatibilityService from "@/services/CompatibilityService";
+import { Profile } from "@/types/supabase";
+import { loadSampleData } from "@/lib/supabase";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
-const ProfileScreen: React.FC = () => {
+interface LocationFilter {
+  enabled: boolean;
+  radius: number;
+  location?: string;
+}
+
+const PeopleScreen: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
+  const [likesUsed, setLikesUsed] = useState(8);
+  const [stickerCounts, setStickerCounts] = useState({ coffee: 5, meal: 3 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>({
+    enabled: false,
+    radius: 25
+  });
+  const [compatibilityResults, setCompatibilityResults] = useState<any>({});
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>("All");
+  
+  const likeLimit = 10;
   const navigate = useNavigate();
-  const { user, profile, updateProfile } = useAuth();
-  const [name, setName] = useState(profile?.full_name || "");
-  const [jobTitle, setJobTitle] = useState(profile?.job_title || "");
-  const [company, setCompany] = useState(profile?.company || "");
-  const [bio, setBio] = useState(profile?.bio || "");
-  const [isEditingBio, setIsEditingBio] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isAnonymousMode, setIsAnonymousMode] = useState(profile?.is_anonymous_mode || false);
-  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
-  const [editingHobbies, setEditingHobbies] = useState(false);
-  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(profile?.hobbies || []);
+  const { user, profile } = useAuth();
 
   useEffect(() => {
-    if (profile) {
-      setName(profile.full_name || "");
-      setJobTitle(profile.job_title || "");
-      setCompany(profile.company || "");
-      setBio(profile.bio || "");
-      setIsAnonymousMode(profile.is_anonymous_mode || false);
-      setSelectedHobbies(profile.hobbies || []);
+    if (user?.id) {
+      fetchProfiles();
     }
-  }, [profile]);
+  }, [user?.id]);
 
-  // Update profile information
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchProfiles = async () => {
     try {
-      setIsUpdating(true);
+      setIsLoading(true);
       
-      // Create a partial profile update with just the fields we're changing
-      const profileUpdate = {
-        full_name: name,
-        job_title: jobTitle,
-        company: company,
-        bio: bio
-      };
+      // First attempt to fetch profiles from the database
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', user?.id || '')
+        .order('created_at', { ascending: false });
       
-      // Update profile
-      if (profile) {
-        await updateProfile(profileUpdate);
+      if (error) throw error;
+      
+      // If no profiles exist or there are very few, generate sample data
+      if (!data || data.length < 3) {
+        try {
+          toast.info("Generating sample data for testing...");
+          const sampleData = await loadSampleData(user?.id || '');
+          toast.success("Sample data generated successfully");
+          
+          // Attempt to fetch profiles again after generating sample data
+          const { data: refreshedData, error: refreshError } = await supabase
+            .from('profiles')
+            .select('*')
+            .neq('id', user?.id || '')
+            .order('created_at', { ascending: false });
+            
+          if (refreshError) throw refreshError;
+          
+          if (refreshedData) {
+            processProfiles(refreshedData);
+          }
+        } catch (sampleError) {
+          console.error("Error generating sample data:", sampleError);
+          // If sample data generation fails, continue with whatever data we have
+          if (data) {
+            processProfiles(data);
+          }
+        }
+      } else {
+        // We have existing profiles, process them
+        processProfiles(data);
       }
-      
-      toast.success("Profile updated successfully!");
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      toast.error(`Failed to update profile: ${error.message}`);
+    } catch (error) {
+      console.error("Error fetching profiles:", error);
+      toast.error("Failed to load profiles");
     } finally {
-      setIsUpdating(false);
-      setIsEditingBio(false);
+      setIsLoading(false);
     }
   };
 
-  const handleEditBio = () => {
-    setIsEditingBio(true);
-  };
-
-  const handleCancelEditBio = () => {
-    setIsEditingBio(false);
-    setBio(profile?.bio || ""); // Revert to original bio
-  };
-
-  const handleOpenPhotoUpload = () => {
-    setShowPhotoUpload(true);
-  };
-
-  const handleClosePhotoUpload = () => {
-    setShowPhotoUpload(false);
-  };
-
-  // Handle photo update with a partial update
-  const handleAddPhoto = async (url: string) => {
-    if (!profile) return;
+  const processProfiles = (profilesData: any[]) => {
+    // Extract unique industries
+    const allIndustries = profilesData
+      .map((profile: any) => {
+        const jobTitle = profile.job_title || '';
+        if (jobTitle.includes('Engineer') || jobTitle.includes('Developer')) 
+          return 'Tech';
+        if (jobTitle.includes('Finance') || jobTitle.includes('Accountant'))
+          return 'Finance';
+        return jobTitle.split(' ')[0]; // Simplified industry extraction
+      })
+      .filter(Boolean);
     
-    try {
-      // Create a new photos array with the existing photos plus the new one
-      const updatedPhotos = [...(profile.photos || []), url];
-      
-      // Only update the photos field
-      await updateProfile({ photos: updatedPhotos });
-      
-      toast.success("Photo added successfully!");
-    } catch (error: any) {
-      console.error('Error adding photo:', error);
-      toast.error(`Failed to add photo: ${error.message}`);
-    }
-  };
-
-  // Handle photo deletion
-  const handleDeletePhoto = async (index: number) => {
-    if (!profile?.photos) return;
+    setIndustries(['All', ...new Set(allIndustries)]);
     
-    try {
-      const updatedPhotos = [...profile.photos];
-      updatedPhotos.splice(index, 1);
-      
-      // Only update the photos field
-      await updateProfile({ photos: updatedPhotos });
-      
-      toast.success("Photo removed successfully!");
-    } catch (error: any) {
-      console.error('Error removing photo:', error);
-      toast.error(`Failed to remove photo: ${error.message}`);
-    }
-  };
-
-  // Toggle anonymous mode with a partial update
-  const toggleAnonymousMode = async () => {
-    if (!profile) return;
+    // Ensure correct typing by processing the profiles
+    const typedProfiles = profilesData.map(profile => {
+          return {
+            ...profile,
+            hobbies: Array.isArray(profile.hobbies) ? profile.hobbies : 
+                    (profile.hobbies ? [profile.hobbies.toString()] : [])
+          } as Profile;
+        });
     
-    try {
-      setIsAnonymousMode(!isAnonymousMode);
-      
-      // Only update the is_anonymous_mode field
-      await updateProfile({
-        is_anonymous_mode: !isAnonymousMode
-      });
-      
-      toast.success(`Anonymous mode ${!isAnonymousMode ? 'enabled' : 'disabled'}`);
-    } catch (error: any) {
-      console.error('Error toggling anonymous mode:', error);
-      setIsAnonymousMode(isAnonymousMode); // revert UI change
-      toast.error(`Failed to update anonymity: ${error.message}`);
-    }
-  };
-
-  // Save hobbies with a partial update
-  const saveHobbies = async (selectedHobbies: string[]) => {
-    try {
-      setEditingHobbies(false);
-      
-      // Only update the hobbies field
-      await updateProfile({
-        hobbies: selectedHobbies
-      });
-      
-      toast.success("Hobbies updated successfully!");
-    } catch (error: any) {
-      console.error('Error updating hobbies:', error);
-      toast.error(`Failed to update hobbies: ${error.message}`);
-    }
-  };
-
-  const handleEditHobbies = () => {
-    setEditingHobbies(true);
-  };
-
-  const handleCancelHobbies = () => {
-    setEditingHobbies(false);
-  };
-
-  // Update subscription section to use profile?.subscription
-  const renderUpgradeSection = () => {
-    const userPlan = profile?.subscription || 'free';
+    setProfiles(typedProfiles);
     
-    return (
-      <div className="bg-gradient-to-r from-brand-blue/10 to-brand-purple/10 p-4 rounded-lg mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-lg">
-              {userPlan === 'free' ? 'Free Plan' : 
-               userPlan === 'premium' ? 'Premium Plan' : 'Premium+ Plan'}
-            </h3>
-            <p className="text-sm text-gray-600">
-              {userPlan === 'free' ? 'Upgrade for more features' : 'You have access to premium features'}
-            </p>
-          </div>
-          {userPlan === 'free' && (
-            <Button
-              onClick={() => navigate('/premium')}
-              className="bg-gradient-to-r from-brand-blue to-brand-purple"
-            >
-              Upgrade
-            </Button>
-          )}
-        </div>
-      </div>
+    // Analyze compatibility for each profile
+    const compatResults: any = {};
+    typedProfiles.forEach((targetProfile: Profile) => {
+      const result = CompatibilityService.analyzeCompatibility(profile, targetProfile);
+      compatResults[targetProfile.id] = result;
+    });
+    
+    setCompatibilityResults(compatResults);
+  };
+
+  const currentProfile = profiles[currentProfileIndex];
+  const currentCompatibility = currentProfile ? 
+    compatibilityResults[currentProfile.id] : null;
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Filter profiles based on search query
+    if (searchQuery) {
+      const filteredIndex = profiles.findIndex(profile => 
+        profile.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        profile.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        profile.company?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      
+      if (filteredIndex !== -1) {
+        setCurrentProfileIndex(filteredIndex);
+      } else {
+        toast("No matching profiles found");
+      }
+    }
+  };
+
+  const handleLike = (id: string) => {
+    if (likesUsed >= likeLimit) {
+      // Show upgrade modal in a real app
+      toast.error("You've reached your like limit. Upgrade to Premium!");
+      navigate("/premium");
+      return;
+    }
+
+    toast.success("You liked this profile!");
+    setLikesUsed(likesUsed + 1);
+    goToNextProfile();
+  };
+
+  const handleSkip = (id: string) => {
+    toast("Profile skipped");
+    goToNextProfile();
+  };
+
+  const handleCoffee = (id: string) => {
+    if (stickerCounts.coffee <= 0) {
+      toast.error("You're out of coffee stickers! Buy more to continue.");
+      navigate("/payment?type=coffee");
+      return;
+    }
+    
+    setStickerCounts({
+      ...stickerCounts,
+      coffee: stickerCounts.coffee - 1
+    });
+    toast.success("Coffee sticker sent!");
+    goToNextProfile();
+  };
+
+  const handleMeal = (id: string) => {
+    if (stickerCounts.meal <= 0) {
+      toast.error("You're out of meal stickers! Buy more to continue.");
+      navigate("/payment?type=meal");
+      return;
+    }
+    
+    setStickerCounts({
+      ...stickerCounts,
+      meal: stickerCounts.meal - 1
+    });
+    toast.success("Meal sticker sent!");
+    goToNextProfile();
+  };
+
+  const goToNextProfile = () => {
+    if (currentProfileIndex < profiles.length - 1) {
+      setCurrentProfileIndex(currentProfileIndex + 1);
+    } else if (profiles.length > 0) {
+      // Reset to first profile if we've gone through all
+      setCurrentProfileIndex(0);
+    }
+  };
+
+  const handleViewLikedBy = () => {
+    navigate("/people/liked-by");
+  };
+
+  const handleIndustryChange = (value: string) => {
+    setSelectedIndustry(value);
+    
+    if (value === "All") {
+      return;
+    }
+    
+    // Find first profile matching the selected industry
+    const industryIndex = profiles.findIndex(profile => {
+      const jobTitle = profile.job_title || '';
+      return jobTitle.includes(value);
+    });
+    
+    if (industryIndex !== -1) {
+      setCurrentProfileIndex(industryIndex);
+    }
+  };
+
+  const toggleLocationFilter = () => {
+    setLocationFilter({
+      ...locationFilter,
+      enabled: !locationFilter.enabled
+    });
+    
+    toast(locationFilter.enabled ? 
+      "Location filter disabled" : 
+      `Location filter enabled (${locationFilter.radius} miles radius)`
     );
   };
 
+  const handleRadiusChange = (value: number[]) => {
+    setLocationFilter({
+      ...locationFilter,
+      radius: value[0]
+    });
+  };
+
   return (
-    <div className="container py-12">
-      <Card className="w-full max-w-3xl mx-auto shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Profile</CardTitle>
-          <Button variant="outline" onClick={() => navigate('/loyalty')}>
-            Loyalty
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {renderUpgradeSection()}
+    <div className="pb-20">
+      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-brand-blue">People</h1>
 
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  type="text"
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="jobTitle">Job Title</Label>
-                <Input
-                  type="text"
-                  id="jobTitle"
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  type="text"
-                  id="company"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="bio">Bio</Label>
-              {isEditingBio ? (
-                <div className="space-y-2">
-                  <Textarea
-                    id="bio"
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className="resize-none"
-                  />
-                  <div className="flex justify-end space-x-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleCancelEditBio}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={isUpdating}
-                    >
-                      {isUpdating ? (
-                        <>
-                          Updating <span className="animate-spin">...</span>
-                        </>
-                      ) : (
-                        <>
-                          Save <Check className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <p className={cn("text-gray-700 py-2", bio ? "" : "italic text-gray-500")}>
-                    {bio || "No bio added yet."}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleEditBio}
-                  >
-                    <Edit className="h-4 w-4 mr-2" /> Edit
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <Button type="submit" className="w-full bg-gradient-to-r from-brand-blue to-brand-purple" disabled={isUpdating}>
-              {isUpdating ? (
-                <>
-                  Updating <span className="animate-spin">...</span>
-                </>
-              ) : (
-                "Update Profile"
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6">
-            <h4 className="text-lg font-semibold mb-4">Profile Photos</h4>
-            <div className="flex space-x-4 overflow-x-auto">
-              {profile?.photos && profile.photos.map((photo, index) => (
-                <div key={index} className="relative">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={photo} alt={`Profile photo ${index + 1}`} />
-                    <AvatarFallback>
-                      {profile?.full_name?.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2"
-                    onClick={() => handleDeletePhoto(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              {profile?.photos && profile.photos.length < 5 && (
-                <div>
-                  <Button variant="secondary" onClick={handleOpenPhotoUpload}>
-                    <Plus className="h-4 w-4 mr-2" /> Add Photo
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <h4 className="text-lg font-semibold mb-4">Hobbies</h4>
-            {editingHobbies ? (
-              <div>
-                <HobbiesSelector
-                  selectedHobbies={selectedHobbies}
-                  onChange={setSelectedHobbies}
-                  onSave={() => saveHobbies(selectedHobbies)}
-                  onCancel={handleCancelHobbies}
-                />
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-2">
-                  {selectedHobbies.length > 0 ? (
-                    selectedHobbies.map((hobby) => (
-                      <Badge key={hobby}>{hobby}</Badge>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 italic">No hobbies added yet.</p>
-                  )}
-                </div>
-                <Button variant="ghost" onClick={handleEditHobbies}>
-                  <Edit className="h-4 w-4 mr-2" /> Edit
+          <div className="flex space-x-2">
+            <form onSubmit={handleSearch} className="relative">
+              <Input
+                className="pr-8 bg-gray-50 border-none focus-visible:ring-brand-purple"
+                placeholder="Search profiles..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2"
+              >
+                <Search className="h-4 w-4 text-gray-500" />
+              </button>
+            </form>
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <SlidersHorizontal className="h-4 w-4" />
                 </Button>
-              </div>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Filter People</SheetTitle>
+                  <SheetDescription>
+                    Customize your matching preferences.
+                  </SheetDescription>
+                </SheetHeader>
+                
+                <div className="py-4 space-y-6">
+                  <div className="space-y-2">
+                    <Label>Industry</Label>
+                    <Select 
+                      value={selectedIndustry} 
+                      onValueChange={handleIndustryChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {industries.map((industry) => (
+                          <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="location-filter">Location Filter</Label>
+                      <Button 
+                        variant={locationFilter.enabled ? "default" : "outline"} 
+                        size="sm"
+                        onClick={toggleLocationFilter}
+                      >
+                        {locationFilter.enabled ? "Enabled" : "Disabled"}
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Radius: {locationFilter.radius} miles</span>
+                      </div>
+                      <Slider
+                        id="radius-slider"
+                        min={5}
+                        max={100}
+                        step={5}
+                        defaultValue={[locationFilter.radius]}
+                        onValueChange={handleRadiusChange}
+                        disabled={!locationFilter.enabled}
+                      />
+                    </div>
+                  </div>
+                  
+                  <SheetClose asChild>
+                    <Button className="w-full mt-4">Apply Filters</Button>
+                  </SheetClose>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide">
+            <Badge variant="outline" className={selectedIndustry === "All" ? "bg-brand-purple text-white" : "bg-white"}>
+              All
+            </Badge>
+            {industries.filter(i => i !== "All").slice(0, 3).map((industry) => (
+              <Badge 
+                key={industry} 
+                variant="outline" 
+                className={selectedIndustry === industry ? "bg-brand-purple text-white" : "bg-white"}
+                onClick={() => handleIndustryChange(industry)}
+              >
+                {industry}
+              </Badge>
+            ))}
+            {locationFilter.enabled && (
+              <Badge variant="default" className="bg-brand-blue text-white flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                <span>{locationFilter.radius} miles</span>
+              </Badge>
             )}
           </div>
 
-          <div className="mt-6">
-            <h4 className="text-lg font-semibold mb-4">Anonymity</h4>
-            <div className="flex items-center justify-between">
-              <p className="text-gray-700">
-                {isAnonymousMode
-                  ? "You are currently in anonymous mode. Your name and photo are hidden from other users."
-                  : "You are currently visible to other users."}
-              </p>
-              <Button
-                variant="outline"
-                onClick={toggleAnonymousMode}
-              >
-                {isAnonymousMode ? (
-                  <>
-                    <Eye className="h-4 w-4 mr-2" /> Disable
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-4 w-4 mr-2" /> Enable
-                  </>
-                )}
-              </Button>
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-500">
+              <span className="font-medium text-brand-purple">{likesUsed}</span>/{likeLimit} Likes
             </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleViewLikedBy}
+              className="border-brand-purple text-brand-purple flex items-center gap-1"
+            >
+              <Heart className="h-3 w-3 fill-brand-purple" />
+              <span>Liked By</span>
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-      <PhotoUpload
-        show={showPhotoUpload}
-        onClose={handleClosePhotoUpload}
-        onAddPhoto={handleAddPhoto}
+        </div>
+      </div>
+
+      <div className="p-4">
+        <div className="flex justify-between items-center mb-3 px-2">
+          <div className="flex gap-2 items-center text-xs">
+            <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded-full border border-amber-200">
+              Coffee: {stickerCounts.coffee}
+            </span>
+            <span className="bg-red-50 text-red-600 px-2 py-1 rounded-full border border-red-200">
+              Meal: {stickerCounts.meal}
+            </span>
+          </div>
+          <Button 
+            variant="link" 
+            size="sm" 
+            className="text-brand-purple"
+            onClick={() => navigate("/payment")}
+          >
+            Buy more
+          </Button>
+        </div>
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center h-80">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple"></div>
+          </div>
+        ) : profiles.length > 0 ? (
+          <ProfileCard
+            profile={{
+              id: currentProfile.id,
+              name: currentProfile.full_name || "Anonymous User",
+              age: currentProfile.birthday 
+                ? Math.floor((new Date().getTime() - new Date(currentProfile.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) 
+                : undefined,
+              jobTitle: currentProfile.job_title,
+              industry: undefined,
+              company: currentProfile.company,
+              education: currentProfile.education,
+              skills: currentProfile.skills,
+              zodiacSign: CompatibilityService.getZodiacSign(currentProfile.birthday),
+              lifePath: CompatibilityService.calculateLifePathNumber(currentProfile.birthday),
+              photo: currentProfile.photos?.[0],
+              isAnonymous: currentProfile.is_anonymous_mode || false,
+            }}
+            compatibilityScore={currentCompatibility?.score || 0}
+            insights={currentCompatibility?.insights || []}
+            pros={currentCompatibility?.pros || []}
+            cons={currentCompatibility?.cons || []}
+            onLike={() => handleLike(currentProfile.id)}
+            onSkip={() => handleSkip(currentProfile.id)}
+            onCoffee={() => handleCoffee(currentProfile.id)}
+            onMeal={() => handleMeal(currentProfile.id)}
+            likeLimit={likeLimit}
+            likesUsed={likesUsed}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-80 text-center">
+            <div className="text-gray-400 mb-4">
+              <Search className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-xl font-medium text-gray-700">No profiles found</h3>
+            <p className="text-gray-500 mt-2">
+              Try adjusting your filters or search criteria
+            </p>
+          </div>
+        )}
+      </div>
+      
+      {/* Dating Advisor Bot for the People section */}
+      <AdvisorBot 
+        currentProfile={currentProfile} 
+        context="people" 
       />
     </div>
   );
 };
 
-export default ProfileScreen;
+export default PeopleScreen;

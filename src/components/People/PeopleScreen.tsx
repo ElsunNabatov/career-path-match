@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, Heart, MapPin, Filter } from "lucide-react";
+import { Search, SlidersHorizontal, Heart, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import AdvisorBot from "../Advisor/AdvisorBot";
 import CompatibilityService from "@/services/CompatibilityService";
 import { Profile } from "@/types/supabase";
+import { loadSampleData } from "@/lib/supabase";
 import {
   Sheet,
   SheetContent,
@@ -66,7 +67,7 @@ const PeopleScreen: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Fetch all profiles except current user
+      // First attempt to fetch profiles from the database
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -75,40 +76,35 @@ const PeopleScreen: React.FC = () => {
       
       if (error) throw error;
       
-      if (data) {
-        // Extract unique industries
-        const allIndustries = data
-          .map((profile: any) => {
-            const jobTitle = profile.job_title || '';
-            if (jobTitle.includes('Engineer') || jobTitle.includes('Developer')) 
-              return 'Tech';
-            if (jobTitle.includes('Finance') || jobTitle.includes('Accountant'))
-              return 'Finance';
-            return jobTitle.split(' ')[0]; // Simplified industry extraction
-          })
-          .filter(Boolean);
-        
-        setIndustries(['All', ...new Set(allIndustries)]);
-        
-        // Ensure correct typing by processing the profiles
-        const typedProfiles = data.map(profile => {
-          return {
-            ...profile,
-            hobbies: Array.isArray(profile.hobbies) ? profile.hobbies : 
-                    (profile.hobbies ? [profile.hobbies.toString()] : [])
-          } as Profile;
-        });
-        
-        setProfiles(typedProfiles);
-        
-        // Analyze compatibility for each profile
-        const compatResults: any = {};
-        typedProfiles.forEach((targetProfile: Profile) => {
-          const result = CompatibilityService.analyzeCompatibility(profile, targetProfile);
-          compatResults[targetProfile.id] = result;
-        });
-        
-        setCompatibilityResults(compatResults);
+      // If no profiles exist or there are very few, generate sample data
+      if (!data || data.length < 3) {
+        try {
+          toast.info("Generating sample data for testing...");
+          const sampleData = await loadSampleData(user?.id || '');
+          toast.success("Sample data generated successfully");
+          
+          // Attempt to fetch profiles again after generating sample data
+          const { data: refreshedData, error: refreshError } = await supabase
+            .from('profiles')
+            .select('*')
+            .neq('id', user?.id || '')
+            .order('created_at', { ascending: false });
+            
+          if (refreshError) throw refreshError;
+          
+          if (refreshedData) {
+            processProfiles(refreshedData);
+          }
+        } catch (sampleError) {
+          console.error("Error generating sample data:", sampleError);
+          // If sample data generation fails, continue with whatever data we have
+          if (data) {
+            processProfiles(data);
+          }
+        }
+      } else {
+        // We have existing profiles, process them
+        processProfiles(data);
       }
     } catch (error) {
       console.error("Error fetching profiles:", error);
@@ -116,6 +112,42 @@ const PeopleScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const processProfiles = (profilesData: any[]) => {
+    // Extract unique industries
+    const allIndustries = profilesData
+      .map((profile: any) => {
+        const jobTitle = profile.job_title || '';
+        if (jobTitle.includes('Engineer') || jobTitle.includes('Developer')) 
+          return 'Tech';
+        if (jobTitle.includes('Finance') || jobTitle.includes('Accountant'))
+          return 'Finance';
+        return jobTitle.split(' ')[0]; // Simplified industry extraction
+      })
+      .filter(Boolean);
+    
+    setIndustries(['All', ...new Set(allIndustries)]);
+    
+    // Ensure correct typing by processing the profiles
+    const typedProfiles = profilesData.map(profile => {
+      return {
+        ...profile,
+        hobbies: Array.isArray(profile.hobbies) ? profile.hobbies : 
+                (profile.hobbies ? [profile.hobbies.toString()] : [])
+      } as Profile;
+    });
+    
+    setProfiles(typedProfiles);
+    
+    // Analyze compatibility for each profile
+    const compatResults: any = {};
+    typedProfiles.forEach((targetProfile: Profile) => {
+      const result = CompatibilityService.analyzeCompatibility(profile, targetProfile);
+      compatResults[targetProfile.id] = result;
+    });
+    
+    setCompatibilityResults(compatResults);
   };
 
   const currentProfile = profiles[currentProfileIndex];

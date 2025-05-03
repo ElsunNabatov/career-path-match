@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/integrations/supabase/types';
 import { generateSampleData } from './dataSeed';
@@ -144,7 +143,14 @@ export const acceptDateRequest = async (dateId: string) => {
 
 // Load sample data for testing
 export const loadSampleData = async (userId: string) => {
-  return generateSampleData(userId);
+  try {
+    const sampleData = await generateSampleData(userId);
+    console.log("Sample data generated:", sampleData);
+    return sampleData;
+  } catch (error) {
+    console.error("Error loading sample data:", error);
+    throw error;
+  }
 };
 
 // Get profiles near a user's location

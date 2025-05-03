@@ -1,204 +1,211 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { toast } from 'sonner';
+import { Loader2 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker"
+import { format } from 'date-fns'
+import { calculateLifePathNumber, getZodiacSign } from '@/utils/matchCalculator';
+import { Switch } from "@/components/ui/switch"
+import { Profile } from '@/types/supabase';
 
-import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+interface FormData {
+  fullName: string;
+  email: string;
+  password: string;
+  linkedinUrl: string;
+  birthday: Date | null;
+  zodiacSign: string;
+  lifePathNumber: number;
+  anonymousMode: boolean;
+}
 
-import FormStepOne from "./FormStepOne";
-import FormStepTwo from "./FormStepTwo";
-import FormStepThree from "./FormStepThree";
-import { calculateZodiacSign, calculateLifePathNumber } from "./utils";
+interface SignUpFormProps {
+  selfieVerified: boolean;
+}
 
-// Form schema
-const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
-  linkedinUrl: z.string().url({ message: "Please enter a valid LinkedIn URL" }).includes("linkedin.com", { message: "Please enter a valid LinkedIn URL" }),
-  birthday: z.string().refine(val => {
-    const date = new Date(val);
-    const now = new Date();
-    return date < now && date > new Date(now.getFullYear() - 100, now.getMonth(), now.getDate());
-  }, { message: "Please enter a valid birth date" }),
-  orientation: z.enum(['straight', 'gay', 'lesbian'], {
-    required_error: "Please select your orientation",
-  }),
-});
-
-export type SignUpFormValues = z.infer<typeof formSchema>;
-
-const SignUpForm = () => {
+const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { signUp } = useAuth();
   const navigate = useNavigate();
-  const { signUp, signInWithGoogle, signInWithLinkedIn } = useAuth();
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [currentStep, setCurrentStep] = React.useState(1);
-  const [selfieCapture, setSelfieCapture] = React.useState<string | null>(null);
-  const [isCameraOpen, setIsCameraOpen] = React.useState(false);
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  
-  const form = useForm<SignUpFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-      linkedinUrl: "",
-      birthday: "",
-      orientation: "straight",
-    },
+  const [formData, setFormData] = useState<FormData>({
+    fullName: '',
+    email: '',
+    password: '',
+    linkedinUrl: '',
+    birthday: null,
+    zodiacSign: '',
+    lifePathNumber: 0,
+    anonymousMode: false,
   });
 
-  const onSubmit = async (values: SignUpFormValues) => {
-    if (currentStep < 3) {
-      setCurrentStep(prev => prev + 1);
-      return;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleBirthdayChange = (date: Date | undefined) => {
+    if (date) {
+      const zodiac = getZodiacSign(date.toISOString());
+      const lifePath = calculateLifePathNumber(date.toISOString());
+      setFormData(prev => ({
+        ...prev,
+        birthday: date,
+        zodiacSign: zodiac,
+        lifePathNumber: lifePath
+      }));
     }
+  };
+
+  const handleAnonymousModeChange = (checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      anonymousMode: checked
+    }));
+  };
+
+  const handleSignUp = async (values: FormData) => {
+    setIsSubmitting(true);
+    setError(null);
     
-    setIsLoading(true);
     try {
-      const birthDate = new Date(values.birthday);
-      const zodiacSign = calculateZodiacSign(birthDate);
-      const lifePathNumber = calculateLifePathNumber(birthDate);
+      // Basic email validation
+      if (!values.email.includes('@') || values.email.length < 5) {
+        setError('Please enter a valid email address');
+        return;
+      }
       
-      // Pass profile data as an object, not a string
-      await signUp(values.email, values.password, {
-        full_name: "", // Will be filled from LinkedIn data
-        linkedin_url: values.linkedinUrl,
-        birthday: values.birthday,
-        orientation: values.orientation,
-        zodiac_sign: zodiacSign,
-        life_path_number: lifePathNumber,
-        selfie_verified: !!selfieCapture,
-        is_anonymous_mode: true // Default to anonymous mode
-      });
+      // Password validation
+      if (values.password.length < 6) {
+        setError('Password must be at least 6 characters');
+        return;
+      }
       
-      navigate("/verification");
+      // Create account
+      const { data, error } = await signUp(
+        values.email, 
+        values.password, 
+        {
+          full_name: values.fullName,
+          linkedin_url: values.linkedinUrl,
+          birthday: values.birthday?.toISOString(),
+          zodiac_sign: values.zodiacSign,
+          life_path_number: values.lifePathNumber,
+          selfie_verified: selfieVerified,
+          is_anonymous_mode: values.anonymousMode
+        } as Partial<Profile>
+      );
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Registration successful - redirect to onboarding
+      toast.success('Registration successful! Redirecting to onboarding...');
+      navigate('/onboarding');
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign up");
-      setIsLoading(false);
+      console.error('Registration failed:', error.message);
+      setError(error.message || 'Registration failed. Please try again.');
+      toast.error(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <FormStepOne 
-            form={form} 
-            isLoading={isLoading} 
-            onGoogleSignUp={handleGoogleSignUp}
-            onLinkedInSignUp={handleLinkedInSignUp}
-          />
-        );
-      case 2:
-        return <FormStepTwo form={form} isLoading={isLoading} />;
-      case 3:
-        return (
-          <FormStepThree 
-            form={form} 
-            isLoading={isLoading}
-            selfieCapture={selfieCapture}
-            startCamera={startCamera}
-          />
-        );
-      default:
-        return null;
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSignUp(formData);
   };
 
-  const handleLinkedInSignUp = async () => {
-    try {
-      console.log("Starting LinkedIn sign-up flow");
-      setIsLoading(true);
-      await signInWithLinkedIn();
-      // OAuth redirect will happen automatically
-    } catch (error) {
-      console.error("LinkedIn sign-up error:", error);
-      setIsLoading(false);
-      toast.error("LinkedIn sign-up failed. Please try another method.");
-    }
-  };
-
-  const handleGoogleSignUp = async () => {
-    try {
-      console.log("Starting Google sign-up flow");
-      setIsLoading(true);
-      await signInWithGoogle();
-      // OAuth redirect will happen automatically
-    } catch (error) {
-      console.error("Google sign-up error:", error);
-      setIsLoading(false);
-      toast.error("Google sign-up failed. Please try another method.");
-    }
-  };
-  
-  const startCamera = async () => {
-    setIsCameraOpen(true);
-    try {
-      if (videoRef.current) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      toast.error("Could not access camera. Please check permissions.");
-      console.error("Error accessing camera:", err);
-    }
-  };
-  
-  const takeSelfie = () => {
-    if (videoRef.current && canvasRef.current) {
-      const context = canvasRef.current.getContext('2d');
-      if (context) {
-        context.drawImage(
-          videoRef.current, 
-          0, 
-          0, 
-          canvasRef.current.width, 
-          canvasRef.current.height
-        );
-        const dataUrl = canvasRef.current.toDataURL('image/png');
-        setSelfieCapture(dataUrl);
-        
-        const stream = videoRef.current.srcObject as MediaStream;
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        setIsCameraOpen(false);
-        
-        toast.success("Selfie captured successfully!");
-      }
-    }
-  };
-
-  const cancelCamera = () => {
-    if (videoRef.current) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    }
-    setIsCameraOpen(false);
-  };
-
-  return {
-    form,
-    isLoading,
-    currentStep,
-    isCameraOpen,
-    videoRef,
-    canvasRef,
-    setIsCameraOpen,
-    takeSelfie,
-    cancelCamera,
-    renderStepContent,
-    onSubmit
-  };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="fullName">Full Name</Label>
+        <Input
+          type="text"
+          id="fullName"
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleInputChange}
+          placeholder="Enter your full name"
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="email">Email</Label>
+        <Input
+          type="email"
+          id="email"
+          name="email"
+          value={formData.email}
+          onChange={handleInputChange}
+          placeholder="Enter your email"
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="password">Password</Label>
+        <Input
+          type="password"
+          id="password"
+          name="password"
+          value={formData.password}
+          onChange={handleInputChange}
+          placeholder="Enter your password"
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+        <Input
+          type="url"
+          id="linkedinUrl"
+          name="linkedinUrl"
+          value={formData.linkedinUrl}
+          onChange={handleInputChange}
+          placeholder="Enter your LinkedIn URL"
+        />
+      </div>
+      <div>
+        <Label>Birthday</Label>
+        <DatePicker
+          onSelect={handleBirthdayChange}
+          value={formData.birthday}
+        />
+        {formData.birthday && (
+          <p className="text-sm text-gray-500 mt-1">
+            Selected Date: {format(formData.birthday, 'PPP')}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center justify-between">
+        <Label htmlFor="anonymousMode">Anonymous Mode</Label>
+        <Switch
+          id="anonymousMode"
+          checked={formData.anonymousMode}
+          onCheckedChange={handleAnonymousModeChange}
+        />
+      </div>
+      {error && <p className="text-red-500">{error}</p>}
+      <Button disabled={isSubmitting} className="w-full">
+        {isSubmitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Please wait
+          </>
+        ) : (
+          "Sign Up"
+        )}
+      </Button>
+    </form>
+  );
 };
 
 export default SignUpForm;
