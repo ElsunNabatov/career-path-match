@@ -199,4 +199,31 @@ export class ChatService {
       throw error;
     }
   }
+  
+  // Submit a review for a date
+  static async submitReview(reviewData: {
+    date_id: string;
+    reviewer_id: string;
+    reviewed_id: string;
+    punctuality_rating: number;
+    communication_rating: number;
+    overall_rating: number;
+    would_meet_again: boolean;
+    comments?: string;
+    share_publicly?: boolean;
+  }): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert(reviewData)
+        .select();
+        
+      if (error) throw error;
+      
+      return data[0];
+    } catch (error: any) {
+      console.error('Error submitting review:', error);
+      throw error;
+    }
+  }
 }

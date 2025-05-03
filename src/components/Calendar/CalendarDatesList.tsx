@@ -65,18 +65,11 @@ const CalendarDatesList: React.FC<CalendarDatesListProps> = ({
             showButton: false
           };
         case "upcoming":
+        case "all":
           return {
             icon: Calendar,
             title: "No upcoming dates",
             description: "You don't have any upcoming dates yet",
-            showButton: true,
-            buttonText: "Browse Matches"
-          };
-        case "all":
-          return {
-            icon: Calendar,
-            title: "No dates scheduled",
-            description: "You don't have any dates scheduled",
             showButton: true,
             buttonText: "Browse Matches"
           };

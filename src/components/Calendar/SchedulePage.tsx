@@ -259,7 +259,8 @@ const SchedulePage: React.FC = () => {
             </Button>
             <Button 
               onClick={handleSchedule}
-              disabled={isSubmitting || !date || matchIdError || !matchId || (locationTab === "recommended" ? !selectedVenue : (!customLocationName || !customLocationAddress))}
+              // Fix the string | boolean issue by ensuring isSubmitting is only boolean
+              disabled={!!(isSubmitting || !date || matchIdError || !matchId || (locationTab === "recommended" ? !selectedVenue : (!customLocationName || !customLocationAddress)))}
               className="bg-brand-blue hover:bg-brand-blue/90"
             >
               {isSubmitting ? "Scheduling..." : "Schedule Date"}

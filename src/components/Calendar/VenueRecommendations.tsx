@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getNearbyVenues } from "@/lib/supabase";
@@ -31,7 +32,7 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
 }) => {
   const [radius, setRadius] = useState<number>(initialRadius);
   
-  const { data: venues, isLoading, error } = useQuery({
+  const { data: venues = [], isLoading, error } = useQuery({
     queryKey: ['venues', venueType, radius],
     queryFn: () => getNearbyVenues(venueType, radius),
   });
@@ -42,7 +43,7 @@ const VenueRecommendations: React.FC<VenueRecommendationsProps> = ({
       id: venue.id,
       name: venue.name,
       address: venue.address,
-      type: venueType,
+      type: venue.type,
       discount_free: venue.discount_free || 0,
       discount_premium: venue.discount_premium || 0,
       discount_premium_plus: venue.discount_premium_plus || 0,
