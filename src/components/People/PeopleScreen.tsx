@@ -1,117 +1,135 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, Heart } from "lucide-react";
+import { Search, SlidersHorizontal, Heart, MapPin, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import ProfileCard from "../Profile/ProfileCard";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import AdvisorBot from "../Advisor/AdvisorBot";
+import CompatibilityService from "@/services/CompatibilityService";
+import { Profile } from "@/types/supabase";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 
-// Sample profile data
-const sampleProfiles = [
-  {
-    id: "1",
-    name: "Emily Johnson",
-    age: 28,
-    jobTitle: "Product Manager",
-    industry: "Technology",
-    company: "Tech Innovations",
-    education: "MBA, Stanford University",
-    skills: ["Product Strategy", "User Research", "Agile", "Data Analysis"],
-    zodiacSign: "Libra",
-    lifePath: 3,
-    photo: undefined,
-    isAnonymous: true,
-    compatibilityScore: 92,
-    insights: [
-      "Strong career alignment",
-      "Astrologically well-matched",
-      "Complementary personalities"
-    ],
-    pros: [
-      "Professional goals highly compatible",
-      "Natural personality alignment",
-      "Similar communication styles"
-    ],
-    cons: [
-      "Both may avoid difficult conversations",
-      "Could compete for leadership roles"
-    ]
-  },
-  {
-    id: "2",
-    name: "Michael Chen",
-    age: 31,
-    jobTitle: "Senior Software Engineer",
-    industry: "Technology",
-    company: "CloudTech Solutions",
-    education: "MS Computer Science, MIT",
-    skills: ["JavaScript", "React", "Node.js", "Cloud Architecture"],
-    zodiacSign: "Scorpio",
-    lifePath: 8,
-    photo: undefined,
-    isAnonymous: true,
-    compatibilityScore: 78,
-    insights: [
-      "Complementary career paths",
-      "Different life approaches",
-      "Passionate connection"
-    ],
-    pros: [
-      "Can learn from each other's professional experiences",
-      "Strong intellectual connection",
-      "Mutual ambition"
-    ],
-    cons: [
-      "May have differing views on personal growth",
-      "Potential power struggles"
-    ]
-  },
-  {
-    id: "3",
-    name: "Sophia Rodriguez",
-    age: 27,
-    jobTitle: "Marketing Director",
-    industry: "Media",
-    company: "Creative Media Group",
-    education: "BA Communications, Columbia University",
-    skills: ["Brand Strategy", "Content Marketing", "Social Media", "Analytics"],
-    zodiacSign: "Leo",
-    lifePath: 1,
-    photo: undefined,
-    isAnonymous: false,
-    compatibilityScore: 85,
-    insights: [
-      "Career paths are complementary",
-      "Leadership and creativity match",
-      "High energy connection"
-    ],
-    pros: [
-      "Both value creativity and innovation",
-      "Strong leadership qualities",
-      "Social compatibility"
-    ],
-    cons: [
-      "May compete for attention",
-      "Both strong-willed personalities"
-    ]
-  }
-];
+interface LocationFilter {
+  enabled: boolean;
+  radius: number;
+  location?: string;
+}
 
 const PeopleScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
   const [likesUsed, setLikesUsed] = useState(8);
   const [stickerCounts, setStickerCounts] = useState({ coffee: 5, meal: 3 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>({
+    enabled: false,
+    radius: 25
+  });
+  const [compatibilityResults, setCompatibilityResults] = useState<any>({});
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>("All");
+  
   const likeLimit = 10;
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
 
-  const currentProfile = sampleProfiles[currentProfileIndex];
+  useEffect(() => {
+    if (user?.id) {
+      fetchProfiles();
+    }
+  }, [user?.id]);
+
+  const fetchProfiles = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch all profiles except current user
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', user?.id || '')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data) {
+        // Extract unique industries
+        const allIndustries = data
+          .map((profile: any) => {
+            const jobTitle = profile.job_title || '';
+            if (jobTitle.includes('Engineer') || jobTitle.includes('Developer')) 
+              return 'Tech';
+            if (jobTitle.includes('Finance') || jobTitle.includes('Accountant'))
+              return 'Finance';
+            return jobTitle.split(' ')[0]; // Simplified industry extraction
+          })
+          .filter(Boolean);
+        
+        setIndustries(['All', ...new Set(allIndustries)]);
+        setProfiles(data);
+        
+        // Analyze compatibility for each profile
+        const compatResults: any = {};
+        data.forEach((targetProfile: Profile) => {
+          const result = CompatibilityService.analyzeCompatibility(profile, targetProfile);
+          compatResults[targetProfile.id] = result;
+        });
+        
+        setCompatibilityResults(compatResults);
+      }
+    } catch (error) {
+      console.error("Error fetching profiles:", error);
+      toast.error("Failed to load profiles");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const currentProfile = profiles[currentProfileIndex];
+  const currentCompatibility = currentProfile ? 
+    compatibilityResults[currentProfile.id] : null;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would filter profiles based on the search query
-    toast.info(`Searching for "${searchQuery}"`);
+    
+    // Filter profiles based on search query
+    if (searchQuery) {
+      const filteredIndex = profiles.findIndex(profile => 
+        profile.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        profile.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        profile.company?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      
+      if (filteredIndex !== -1) {
+        setCurrentProfileIndex(filteredIndex);
+      } else {
+        toast("No matching profiles found");
+      }
+    }
   };
 
   const handleLike = (id: string) => {
@@ -163,9 +181,9 @@ const PeopleScreen: React.FC = () => {
   };
 
   const goToNextProfile = () => {
-    if (currentProfileIndex < sampleProfiles.length - 1) {
+    if (currentProfileIndex < profiles.length - 1) {
       setCurrentProfileIndex(currentProfileIndex + 1);
-    } else {
+    } else if (profiles.length > 0) {
       // Reset to first profile if we've gone through all
       setCurrentProfileIndex(0);
     }
@@ -173,6 +191,43 @@ const PeopleScreen: React.FC = () => {
 
   const handleViewLikedBy = () => {
     navigate("/people/liked-by");
+  };
+
+  const handleIndustryChange = (value: string) => {
+    setSelectedIndustry(value);
+    
+    if (value === "All") {
+      return;
+    }
+    
+    // Find first profile matching the selected industry
+    const industryIndex = profiles.findIndex(profile => {
+      const jobTitle = profile.job_title || '';
+      return jobTitle.includes(value);
+    });
+    
+    if (industryIndex !== -1) {
+      setCurrentProfileIndex(industryIndex);
+    }
+  };
+
+  const toggleLocationFilter = () => {
+    setLocationFilter({
+      ...locationFilter,
+      enabled: !locationFilter.enabled
+    });
+    
+    toast(locationFilter.enabled ? 
+      "Location filter disabled" : 
+      `Location filter enabled (${locationFilter.radius} miles radius)`
+    );
+  };
+
+  const handleRadiusChange = (value: number[]) => {
+    setLocationFilter({
+      ...locationFilter,
+      radius: value[0]
+    });
   };
 
   return (
@@ -197,23 +252,98 @@ const PeopleScreen: React.FC = () => {
               </button>
             </form>
             
-            <Button variant="outline" size="icon">
-              <SlidersHorizontal className="h-4 w-4" />
-            </Button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Filter People</SheetTitle>
+                  <SheetDescription>
+                    Customize your matching preferences.
+                  </SheetDescription>
+                </SheetHeader>
+                
+                <div className="py-4 space-y-6">
+                  <div className="space-y-2">
+                    <Label>Industry</Label>
+                    <Select 
+                      value={selectedIndustry} 
+                      onValueChange={handleIndustryChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {industries.map((industry) => (
+                          <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="location-filter">Location Filter</Label>
+                      <Button 
+                        variant={locationFilter.enabled ? "default" : "outline"} 
+                        size="sm"
+                        onClick={toggleLocationFilter}
+                      >
+                        {locationFilter.enabled ? "Enabled" : "Disabled"}
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Radius: {locationFilter.radius} miles</span>
+                      </div>
+                      <Slider
+                        id="radius-slider"
+                        min={5}
+                        max={100}
+                        step={5}
+                        defaultValue={[locationFilter.radius]}
+                        onValueChange={handleRadiusChange}
+                        disabled={!locationFilter.enabled}
+                      />
+                    </div>
+                  </div>
+                  
+                  <SheetClose asChild>
+                    <Button className="w-full mt-4">Apply Filters</Button>
+                  </SheetClose>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
 
         <div className="flex items-center justify-between mt-3">
-          <div className="flex space-x-2">
-            <Badge variant="outline" className="bg-white">
+          <div className="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide">
+            <Badge variant="outline" className={selectedIndustry === "All" ? "bg-brand-purple text-white" : "bg-white"}>
               All
             </Badge>
-            <Badge variant="outline" className="bg-white">
-              Tech
-            </Badge>
-            <Badge variant="outline" className="bg-white">
-              Finance
-            </Badge>
+            {industries.filter(i => i !== "All").slice(0, 3).map((industry) => (
+              <Badge 
+                key={industry} 
+                variant="outline" 
+                className={selectedIndustry === industry ? "bg-brand-purple text-white" : "bg-white"}
+                onClick={() => handleIndustryChange(industry)}
+              >
+                {industry}
+              </Badge>
+            ))}
+            {locationFilter.enabled && (
+              <Badge variant="default" className="bg-brand-blue text-white flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                <span>{locationFilter.radius} miles</span>
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -252,33 +382,58 @@ const PeopleScreen: React.FC = () => {
             Buy more
           </Button>
         </div>
-        <ProfileCard
-          profile={{
-            id: currentProfile.id,
-            name: currentProfile.name,
-            age: currentProfile.age,
-            jobTitle: currentProfile.jobTitle,
-            industry: currentProfile.industry,
-            company: currentProfile.company,
-            education: currentProfile.education,
-            skills: currentProfile.skills,
-            zodiacSign: currentProfile.zodiacSign,
-            lifePath: currentProfile.lifePath,
-            photo: currentProfile.photo,
-            isAnonymous: currentProfile.isAnonymous,
-          }}
-          compatibilityScore={currentProfile.compatibilityScore}
-          insights={currentProfile.insights}
-          pros={currentProfile.pros}
-          cons={currentProfile.cons}
-          onLike={handleLike}
-          onSkip={handleSkip}
-          onCoffee={handleCoffee}
-          onMeal={handleMeal}
-          likeLimit={likeLimit}
-          likesUsed={likesUsed}
-        />
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center h-80">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple"></div>
+          </div>
+        ) : profiles.length > 0 ? (
+          <ProfileCard
+            profile={{
+              id: currentProfile.id,
+              name: currentProfile.full_name || "Anonymous User",
+              age: currentProfile.birthday 
+                ? Math.floor((new Date().getTime() - new Date(currentProfile.birthday).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) 
+                : undefined,
+              jobTitle: currentProfile.job_title,
+              industry: undefined,
+              company: currentProfile.company,
+              education: currentProfile.education,
+              skills: currentProfile.skills,
+              zodiacSign: CompatibilityService.getZodiacSign(currentProfile.birthday),
+              lifePath: CompatibilityService.calculateLifePathNumber(currentProfile.birthday),
+              photo: currentProfile.photos?.[0],
+              isAnonymous: currentProfile.is_anonymous_mode || false,
+            }}
+            compatibilityScore={currentCompatibility?.score || 0}
+            insights={currentCompatibility?.insights || []}
+            pros={currentCompatibility?.pros || []}
+            cons={currentCompatibility?.cons || []}
+            onLike={() => handleLike(currentProfile.id)}
+            onSkip={() => handleSkip(currentProfile.id)}
+            onCoffee={() => handleCoffee(currentProfile.id)}
+            onMeal={() => handleMeal(currentProfile.id)}
+            likeLimit={likeLimit}
+            likesUsed={likesUsed}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-80 text-center">
+            <div className="text-gray-400 mb-4">
+              <Search className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-xl font-medium text-gray-700">No profiles found</h3>
+            <p className="text-gray-500 mt-2">
+              Try adjusting your filters or search criteria
+            </p>
+          </div>
+        )}
       </div>
+      
+      {/* Dating Advisor Bot for the People section */}
+      <AdvisorBot 
+        currentProfile={currentProfile} 
+        context="people" 
+      />
     </div>
   );
 };

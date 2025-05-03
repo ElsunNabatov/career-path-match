@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, ChevronLeft, Send, User, Coffee, Sandwich, EyeOff, Eye, Heart } from "lucide-react";
@@ -13,6 +12,7 @@ import { ChatService } from "@/services/ChatService";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, isToday, isYesterday } from "date-fns";
 import DateScheduler from "./DateScheduler";
+import AdvisorBot from "../Advisor/AdvisorBot";
 
 interface Match {
   id: string;
@@ -507,6 +507,9 @@ const ChatScreen: React.FC = () => {
     }
   };
 
+  // Add the matchId variable that we'll pass to AdvisorBot
+  const matchId = match?.id;
+
   return (
     <div className="pb-16 h-full">
       <div className="px-4 py-3 border-b">
@@ -549,6 +552,9 @@ const ChatScreen: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Dating Advisor for Chat */}
+      <AdvisorBot context="chat" matchId={matchId} />
     </div>
   );
 };

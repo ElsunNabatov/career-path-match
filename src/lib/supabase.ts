@@ -1,6 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/integrations/supabase/types';
+import { generateSampleData } from './dataSeed';
 
 // Create and export the supabase client
 export const supabase = createClient<Database>(
@@ -141,3 +142,35 @@ export const acceptDateRequest = async (dateId: string) => {
   }
 };
 
+// Load sample data for testing
+export const loadSampleData = async (userId: string) => {
+  return generateSampleData(userId);
+};
+
+// Get profiles near a user's location
+export const getNearbyProfiles = async (userId: string, radiusMiles: number = 25) => {
+  try {
+    // In a real implementation, this would use geospatial queries with PostGIS
+    // For demo purposes, we'll simulate with random distances
+    
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('location')
+      .eq('id', userId)
+      .single();
+      
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', userId);
+      
+    // Simulate distance calculation
+    return (data || []).map(profile => ({
+      ...profile,
+      distance: Math.floor(Math.random() * 50) // Random distance 0-50 miles
+    })).filter(profile => profile.distance <= radiusMiles);
+  } catch (error) {
+    console.error('Error fetching nearby profiles:', error);
+    throw error;
+  }
+};
