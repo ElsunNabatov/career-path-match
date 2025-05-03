@@ -1,89 +1,81 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, ChevronLeft, Send, User, Coffee, Sandwich, EyeOff, Eye, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { ChatService } from "@/services/ChatService";
+import { useAuth } from "@/contexts/AuthContext";
+import { format, isToday, isYesterday } from "date-fns";
+import DateScheduler from "./DateScheduler";
 
-const sampleMatches = [
-  {
-    id: "1",
-    name: "Emily J.",
-    lastMessage: "Would you like to meet for coffee sometime?",
-    time: "2m",
-    isAnonymous: true,
-    unread: 2,
-    compatibilityScore: 92,
-  },
-  {
-    id: "2",
-    name: "Michael Chen",
-    lastMessage: "I really enjoyed our conversation about tech trends!",
-    time: "1h",
-    isAnonymous: false,
-    unread: 0,
-    compatibilityScore: 78,
-  },
-  {
-    id: "3",
-    name: "Sophia R.",
-    lastMessage: "Thanks for the book recommendation!",
-    time: "5h",
-    isAnonymous: true,
-    unread: 0,
-    compatibilityScore: 85,
-  },
-];
-
-const sampleChatMessages = [
-  {
-    id: "1",
-    senderId: "1",
-    text: "Hi there! I noticed we both work in product management. What aspects of the role do you enjoy most?",
-    timestamp: "10:32 AM",
-    isUser: false,
-  },
-  {
-    id: "2",
-    senderId: "user",
-    text: "Hi! I really enjoy the collaborative aspects of product management - working with designers and developers to solve real user problems.",
-    timestamp: "10:35 AM",
-    isUser: true,
-  },
-  {
-    id: "3",
-    senderId: "1",
-    text: "That's exactly what I love too! What industry are you currently working in?",
-    timestamp: "10:38 AM",
-    isUser: false,
-  },
-  {
-    id: "4",
-    senderId: "user",
-    text: "I'm in the healthtech space right now. It's really rewarding to build products that help people with their wellbeing. How about you?",
-    timestamp: "10:40 AM",
-    isUser: true,
-  },
-  {
-    id: "5",
-    senderId: "1",
-    text: "That's amazing! I'm in fintech, but I've always been interested in healthtech. Would you like to grab a coffee sometime and chat more about our experiences?",
-    timestamp: "10:45 AM",
-    isUser: false,
-  },
-];
-
-interface ChatListProps {
-  matches: typeof sampleMatches;
-  onSelectMatch: (id: string) => void;
-  selectedMatchId: string | null;
+interface Match {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  partnerPhoto?: string;
+  isAnonymous: boolean;
+  unreadCount: number;
+  compatibilityScore: number;
+  lastMessage?: string;
+  lastMessageTime?: string;
 }
 
-const ChatList: React.FC<ChatListProps> = ({ matches, onSelectMatch, selectedMatchId }) => {
+interface ChatMessage {
+  id: string;
+  senderId: string;
+  content: string;
+  timestamp: string;
+  isUser: boolean;
+}
+
+const ChatList: React.FC<{
+  matches: Match[];
+  onSelectMatch: (id: string) => void;
+  selectedMatchId: string | null;
+  isLoading: boolean;
+}> = ({ matches, onSelectMatch, selectedMatchId, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <p className="text-sm text-gray-500 text-center">Loading conversations...</p>
+      </div>
+    );
+  }
+  
+  if (matches.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+          <User className="h-8 w-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-medium">No conversations yet</h3>
+        <p className="text-gray-500 text-sm mt-1">
+          Match with someone to start chatting
+        </p>
+      </div>
+    );
+  }
+
+  // Format the timestamp
+  const formatTime = (timestamp: string) => {
+    if (!timestamp) return '';
+    
+    const date = new Date(timestamp);
+    if (isToday(date)) {
+      return format(date, 'h:mm a');
+    } else if (isYesterday(date)) {
+      return 'Yesterday';
+    } else {
+      return format(date, 'MM/dd/yy');
+    }
+  };
+
   return (
     <div className="space-y-1">
       {matches.map((match) => (
@@ -97,13 +89,17 @@ const ChatList: React.FC<ChatListProps> = ({ matches, onSelectMatch, selectedMat
         >
           <div className="relative">
             <Avatar className="h-12 w-12">
-              <AvatarFallback className="bg-brand-purple/20 text-brand-purple">
-                {match.isAnonymous ? <User size={20} /> : match.name.charAt(0)}
-              </AvatarFallback>
+              {match.partnerPhoto ? (
+                <AvatarImage src={match.partnerPhoto} alt={match.partnerName} />
+              ) : (
+                <AvatarFallback className="bg-brand-purple/20 text-brand-purple">
+                  {match.isAnonymous ? <User size={20} /> : match.partnerName.charAt(0)}
+                </AvatarFallback>
+              )}
             </Avatar>
-            {match.unread > 0 && (
+            {match.unreadCount > 0 && (
               <div className="absolute -top-1 -right-1 bg-brand-purple text-white rounded-full h-5 w-5 flex items-center justify-center text-xs">
-                {match.unread}
+                {match.unreadCount}
               </div>
             )}
           </div>
@@ -111,12 +107,12 @@ const ChatList: React.FC<ChatListProps> = ({ matches, onSelectMatch, selectedMat
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <h3 className="font-medium truncate">
-                {match.name}{" "}
+                {match.partnerName}{" "}
                 {match.isAnonymous && <EyeOff className="inline h-3 w-3 ml-1 opacity-70" />}
               </h3>
-              <span className="text-xs text-gray-500">{match.time}</span>
+              <span className="text-xs text-gray-500">{formatTime(match.lastMessageTime || '')}</span>
             </div>
-            <p className="text-sm text-gray-500 truncate">{match.lastMessage}</p>
+            <p className="text-sm text-gray-500 truncate">{match.lastMessage || "Start a conversation"}</p>
           </div>
         </div>
       ))}
@@ -125,14 +121,15 @@ const ChatList: React.FC<ChatListProps> = ({ matches, onSelectMatch, selectedMat
 };
 
 interface ChatViewProps {
-  match: typeof sampleMatches[0] | undefined;
-  messages: typeof sampleChatMessages;
+  match: Match | undefined;
+  messages: ChatMessage[];
   onBack: () => void;
   onRevealIdentity: () => void;
   onScheduleDate: () => void;
   messageInput: string;
   setMessageInput: (value: string) => void;
   onSendMessage: () => void;
+  isLoading: boolean;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({
@@ -144,8 +141,39 @@ const ChatView: React.FC<ChatViewProps> = ({
   messageInput,
   setMessageInput,
   onSendMessage,
+  isLoading,
 }) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    // Scroll to bottom whenever messages change
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+  
   if (!match) return null;
+  
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    if (isToday(date)) {
+      return 'Today';
+    } else if (isYesterday(date)) {
+      return 'Yesterday';
+    } else {
+      return format(date, 'EEEE, MMMM d');
+    }
+  };
+  
+  // Group messages by date
+  const groupedMessages: { [date: string]: ChatMessage[] } = {};
+  messages.forEach(message => {
+    const dateKey = formatDate(message.timestamp);
+    if (!groupedMessages[dateKey]) {
+      groupedMessages[dateKey] = [];
+    }
+    groupedMessages[dateKey].push(message);
+  });
 
   return (
     <div className="flex flex-col h-full">
@@ -157,13 +185,17 @@ const ChatView: React.FC<ChatViewProps> = ({
               <ChevronLeft className="h-5 w-5" />
             </button>
             <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-brand-purple/20 text-brand-purple">
-                {match.isAnonymous ? <User size={16} /> : match.name.charAt(0)}
-              </AvatarFallback>
+              {match.partnerPhoto ? (
+                <AvatarImage src={match.partnerPhoto} alt={match.partnerName} />
+              ) : (
+                <AvatarFallback className="bg-brand-purple/20 text-brand-purple">
+                  {match.isAnonymous ? <User size={16} /> : match.partnerName.charAt(0)}
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
               <div className="flex items-center">
-                <h3 className="font-medium">{match.name}</h3>
+                <h3 className="font-medium">{match.partnerName}</h3>
                 <Badge className="ml-2 bg-brand-purple text-white text-xs">
                   {match.compatibilityScore}%
                 </Badge>
@@ -179,39 +211,63 @@ const ChatView: React.FC<ChatViewProps> = ({
               )}
             </div>
           </div>
-          <button
-            className="text-brand-purple flex items-center text-sm"
-            onClick={onScheduleDate}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            Schedule
-          </button>
+          <DateScheduler 
+            matchId={match.id}
+            onScheduled={onScheduleDate}
+          />
         </div>
       </div>
 
       {/* Chat messages */}
-      <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              "max-w-[80%] rounded-lg p-3",
-              message.isUser
-                ? "bg-brand-purple text-white ml-auto rounded-br-none"
-                : "bg-gray-100 mr-auto rounded-bl-none"
-            )}
-          >
-            <p>{message.text}</p>
-            <div
-              className={cn(
-                "text-xs mt-1",
-                message.isUser ? "text-purple-100" : "text-gray-500"
-              )}
-            >
-              {message.timestamp}
-            </div>
+      <div className="flex-1 p-4 space-y-6 overflow-y-auto">
+        {isLoading ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500">Loading messages...</p>
           </div>
-        ))}
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="p-4 bg-gray-50 rounded-full mb-3">
+              <Send className="h-6 w-6 text-gray-400" />
+            </div>
+            <p className="font-medium">No messages yet</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Send a message to start the conversation
+            </p>
+          </div>
+        ) : (
+          Object.keys(groupedMessages).map(date => (
+            <div key={date} className="space-y-4">
+              <div className="flex items-center justify-center">
+                <div className="bg-gray-100 text-gray-500 text-xs px-3 py-1 rounded-full">
+                  {date}
+                </div>
+              </div>
+              
+              {groupedMessages[date].map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "max-w-[80%] rounded-lg p-3",
+                    message.isUser
+                      ? "bg-brand-purple text-white ml-auto rounded-br-none"
+                      : "bg-gray-100 mr-auto rounded-bl-none"
+                  )}
+                >
+                  <p>{message.content}</p>
+                  <div
+                    className={cn(
+                      "text-xs mt-1",
+                      message.isUser ? "text-purple-100" : "text-gray-500"
+                    )}
+                  >
+                    {format(new Date(message.timestamp), 'h:mm a')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Chat actions: Coffee/Meal */}
@@ -250,6 +306,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           size="icon"
           className="bg-brand-purple hover:bg-brand-purple/90"
           onClick={onSendMessage}
+          disabled={!messageInput.trim()}
         >
           <Send className="h-4 w-4" />
         </Button>
@@ -274,15 +331,113 @@ const ChatScreen: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState("messages");
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
-  const [messages, setMessages] = useState(sampleChatMessages);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const navigate = useNavigate();
-
+  const { user } = useAuth();
+  
   const selectedMatch = selectedMatchId
-    ? sampleMatches.find((match) => match.id === selectedMatchId)
+    ? matches.find((match) => match.id === selectedMatchId)
     : undefined;
+
+  // Fetch matches on component mount
+  useEffect(() => {
+    const fetchMatches = async () => {
+      if (!user) return;
+      
+      try {
+        setIsLoadingMatches(true);
+        const fetchedMatches = await ChatService.getMatches(user.id);
+        setMatches(fetchedMatches);
+      } catch (error) {
+        console.error('Error fetching matches:', error);
+        toast.error('Failed to load conversations');
+      } finally {
+        setIsLoadingMatches(false);
+      }
+    };
+    
+    fetchMatches();
+  }, [user]);
+  
+  // Fetch messages for selected match
+  useEffect(() => {
+    if (!selectedMatchId || !user) return;
+    
+    const loadChatHistory = async () => {
+      try {
+        setIsLoadingMessages(true);
+        const chatHistory = await ChatService.getChatHistory(selectedMatchId);
+        
+        // Convert messages to the format used by the component
+        const formattedMessages = chatHistory.map(msg => ({
+          id: msg.id,
+          senderId: msg.sender_id,
+          content: msg.content,
+          timestamp: msg.created_at,
+          isUser: msg.sender_id === user.id,
+        }));
+        
+        setMessages(formattedMessages);
+        
+        // Mark messages as read
+        if (selectedMatch) {
+          await ChatService.markAsRead(selectedMatchId, selectedMatch.partnerId);
+        }
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+    
+    loadChatHistory();
+    
+    // Set up real-time message subscription
+    const unsubscribe = ChatService.subscribeToChat(selectedMatchId, (newMsg) => {
+      // Add the new message to the chat
+      if (newMsg.sender_id !== user.id) {
+        const formattedMessage = {
+          id: newMsg.id,
+          senderId: newMsg.sender_id,
+          content: newMsg.content,
+          timestamp: newMsg.created_at,
+          isUser: false,
+        };
+        
+        setMessages(prev => [...prev, formattedMessage]);
+        
+        // Mark the message as read since we're already in the chat
+        ChatService.markAsRead(selectedMatchId, newMsg.sender_id);
+      }
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedMatchId, user, selectedMatch]);
+  
+  // Refresh matches when returning to the main chat list
+  useEffect(() => {
+    if (!selectedMatchId && user) {
+      const fetchMatches = async () => {
+        try {
+          const fetchedMatches = await ChatService.getMatches(user.id);
+          setMatches(fetchedMatches);
+        } catch (error) {
+          console.error('Error refreshing matches:', error);
+        }
+      };
+      
+      fetchMatches();
+    }
+  }, [selectedMatchId, user]);
 
   const handleSelectMatch = (id: string) => {
     setSelectedMatchId(id);
+    setMessageInput("");
   };
 
   const handleBack = () => {
@@ -290,39 +445,66 @@ const ChatScreen: React.FC = () => {
   };
 
   const handleRevealIdentity = () => {
-    toast.success("Request sent to reveal identity!");
+    if (!selectedMatchId) return;
+    
+    ChatService.requestIdentityReveal(selectedMatchId)
+      .then(() => {
+        toast.success("Request sent to reveal identity!");
+      })
+      .catch((error) => {
+        console.error('Error requesting identity reveal:', error);
+        toast.error("Failed to send request");
+      });
   };
 
   const handleScheduleDate = () => {
     navigate("/calendar");
   };
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-
-    // Add the new message
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !selectedMatchId || !user) return;
+    
+    const trimmedMessage = messageInput.trim();
+    // Clear input right away for better UX
+    setMessageInput("");
+    
+    // Add message to UI immediately
+    const tempId = `temp-${Date.now()}`;
+    const now = new Date().toISOString();
     const newMessage = {
-      id: `${messages.length + 1}`,
-      senderId: "user",
-      text: messageInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      id: tempId,
+      senderId: user.id,
+      content: trimmedMessage,
+      timestamp: now,
       isUser: true,
     };
-
-    setMessages([...messages, newMessage]);
-    setMessageInput("");
-
-    // Simulate a reply after a delay
-    setTimeout(() => {
-      const replyMessage = {
-        id: `${messages.length + 2}`,
-        senderId: selectedMatchId || "1",
-        text: "That sounds interesting! Tell me more about it.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isUser: false,
-      };
-      setMessages((prevMessages) => [...prevMessages, replyMessage]);
-    }, 2000);
+    
+    setMessages(prev => [...prev, newMessage]);
+    
+    // Send message to backend
+    try {
+      const sentMessage = await ChatService.sendMessage(selectedMatchId, user.id, trimmedMessage);
+      
+      // Update the message with the real ID (if needed)
+      setMessages(prev => 
+        prev.map(msg => msg.id === tempId 
+          ? { 
+              ...msg, 
+              id: sentMessage.id,
+              timestamp: sentMessage.created_at 
+            } 
+          : msg
+        )
+      );
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error("Failed to send message");
+      
+      // Remove the temporary message if sending failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      // Restore the message input
+      setMessageInput(trimmedMessage);
+    }
   };
 
   return (
@@ -338,9 +520,10 @@ const ChatScreen: React.FC = () => {
             <div className="p-4">
               <TabsContent value="messages" className="mt-0">
                 <ChatList 
-                  matches={sampleMatches}
+                  matches={matches}
                   onSelectMatch={handleSelectMatch}
                   selectedMatchId={selectedMatchId}
+                  isLoading={isLoadingMatches}
                 />
               </TabsContent>
               <TabsContent value="likes" className="mt-0">
@@ -362,6 +545,7 @@ const ChatScreen: React.FC = () => {
             messageInput={messageInput}
             setMessageInput={setMessageInput}
             onSendMessage={handleSendMessage}
+            isLoading={isLoadingMessages}
           />
         )}
       </div>

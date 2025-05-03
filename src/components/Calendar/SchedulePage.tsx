@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Clock, MapPin } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MapPin, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import DateTypeSelector from "./DateTypeSelector";
 import VenueRecommendations from "./VenueRecommendations";
@@ -31,6 +32,35 @@ const SchedulePage: React.FC = () => {
   const [customLocationAddress, setCustomLocationAddress] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [matchId, setMatchId] = useState<string>("");
+  const [matchIdError, setMatchIdError] = useState<string>("");
+  
+  // Validate UUID format
+  const validateMatchId = (id: string) => {
+    if (!id) {
+      setMatchIdError("Match ID is required");
+      return false;
+    }
+    
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      setMatchIdError("Invalid Match ID format. Please use a valid UUID");
+      return false;
+    }
+    
+    setMatchIdError("");
+    return true;
+  };
+
+  const handleMatchIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setMatchId(value);
+    
+    if (value) {
+      validateMatchId(value);
+    } else {
+      setMatchIdError("");
+    }
+  };
 
   const handleSchedule = () => {
     if (!date) {
@@ -38,8 +68,7 @@ const SchedulePage: React.FC = () => {
       return;
     }
 
-    if (!matchId) {
-      toast.error("Please enter a match ID");
+    if (!validateMatchId(matchId)) {
       return;
     }
 
@@ -107,9 +136,19 @@ const SchedulePage: React.FC = () => {
             <Input 
               id="match-id"
               value={matchId}
-              onChange={(e) => setMatchId(e.target.value)}
-              placeholder="Enter match ID"
+              onChange={handleMatchIdChange}
+              placeholder="Enter match ID (e.g. 123e4567-e89b-12d3-a456-426614174000)"
+              className={matchIdError ? "border-red-500" : ""}
             />
+            {matchIdError && (
+              <Alert variant="destructive" className="mt-2 py-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{matchIdError}</AlertDescription>
+              </Alert>
+            )}
+            <p className="text-xs text-gray-500">
+              The Match ID is a unique identifier for the match between you and another user.
+            </p>
           </div>
 
           {/* Date and Time Selection */}
@@ -220,7 +259,7 @@ const SchedulePage: React.FC = () => {
             </Button>
             <Button 
               onClick={handleSchedule}
-              disabled={isSubmitting || !date || !matchId || (locationTab === "recommended" ? !selectedVenue : (!customLocationName || !customLocationAddress))}
+              disabled={isSubmitting || !date || matchIdError || !matchId || (locationTab === "recommended" ? !selectedVenue : (!customLocationName || !customLocationAddress))}
               className="bg-brand-blue hover:bg-brand-blue/90"
             >
               {isSubmitting ? "Scheduling..." : "Schedule Date"}

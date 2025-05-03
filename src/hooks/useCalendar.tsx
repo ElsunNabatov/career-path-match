@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, getNearbyVenues, sendDateRequest, acceptDateRequest } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -34,15 +33,15 @@ export const useCalendar = () => {
     
     return (data || []).map((date: any) => {
       // Determine if the current user is user1 or user2
-      const isUser1 = date.matches.user1 === user.id;
+      const isUser1 = date.matches?.user1 === user.id;
       const partnerProfile = isUser1 ? date.profiles_dates_user2_profile_fk : date.profiles_dates_user1_profile_fk;
       const isInitiator = isUser1; // For now, assuming user1 is always the initiator
       
       return {
         ...date,
-        partnerName: partnerProfile.full_name,
-        partnerId: isUser1 ? date.matches.user2 : date.matches.user1,
-        partnerIsAnonymous: date.matches.is_anonymous && !date.matches.identity_revealed,
+        partnerName: partnerProfile?.full_name,
+        partnerId: isUser1 ? date.matches?.user2 : date.matches?.user1,
+        partnerIsAnonymous: date.matches?.is_anonymous && !date.matches?.identity_revealed,
         isInitiator,
         isPending: date.status === 'pending',
       };
@@ -74,15 +73,15 @@ export const useCalendar = () => {
     
     return (data || []).map((date: any) => {
       // Determine if the current user is user1 or user2
-      const isUser1 = date.matches.user1 === user.id;
+      const isUser1 = date.matches?.user1 === user.id;
       const partnerProfile = isUser1 ? date.profiles_dates_user2_profile_fk : date.profiles_dates_user1_profile_fk;
       const hasReviewed = date.reviews?.some((review: any) => review.reviewer_id === user.id);
       
       return {
         ...date,
-        partnerName: partnerProfile.full_name,
-        partnerId: isUser1 ? date.matches.user2 : date.matches.user1,
-        partnerIsAnonymous: date.matches.is_anonymous && !date.matches.identity_revealed,
+        partnerName: partnerProfile?.full_name,
+        partnerId: isUser1 ? date.matches?.user2 : date.matches?.user1,
+        partnerIsAnonymous: date.matches?.is_anonymous && !date.matches?.identity_revealed,
         reviewed: hasReviewed,
       };
     });
@@ -106,20 +105,27 @@ export const useCalendar = () => {
   }) => {
     if (!user) throw new Error('No user logged in');
     
-    // Format date_time if needed
-    const formattedDateTime = dateData.date_time;
-    
-    const { data, error } = await supabase
-      .from('dates')
-      .insert({
-        ...dateData,
-        date_time: formattedDateTime
-      })
-      .select();
+    // Validate UUID format before sending to API
+    try {
+      // Simple UUID validation
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dateData.match_id)) {
+        throw new Error('Invalid match ID format');
+      }
+      
+      const { data, error } = await supabase
+        .from('dates')
+        .insert({
+          ...dateData
+        })
+        .select();
 
-    if (error) throw error;
-    
-    return data[0];
+      if (error) throw error;
+      
+      return data[0];
+    } catch (error: any) {
+      console.error('Error scheduling date:', error);
+      throw new Error(error.message || 'Failed to schedule date');
+    }
   };
 
   // Send a date request
