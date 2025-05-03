@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -8,6 +7,7 @@ import { StarIcon } from 'lucide-react';
 import { ChatService } from '@/services/ChatService';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
+import { Review } from '@/types/supabase';
 
 interface DateReviewProps {
   dateId: string;

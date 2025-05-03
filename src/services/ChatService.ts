@@ -1,6 +1,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { Review } from "@/types/supabase";
 
 export type ChatMessage = {
   id: string;
@@ -211,7 +212,7 @@ export class ChatService {
     would_meet_again: boolean;
     comments?: string;
     share_publicly?: boolean;
-  }): Promise<any> {
+  }): Promise<Review> {
     try {
       const { data, error } = await supabase
         .from('reviews')
@@ -220,7 +221,7 @@ export class ChatService {
         
       if (error) throw error;
       
-      return data[0];
+      return data[0] as Review;
     } catch (error: any) {
       console.error('Error submitting review:', error);
       throw error;
