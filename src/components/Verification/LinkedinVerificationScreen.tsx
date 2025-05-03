@@ -1,13 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -41,10 +37,9 @@ const LinkedinVerificationScreen: React.FC = () => {
       // Simulate an API delay
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Update the profile with LinkedIn data
+      // Update the profile with LinkedIn data - use a partial update
       if (profile) {
         await updateProfile({
-          ...profile, // Preserve existing profile
           full_name: linkedinData.full_name,
           job_title: linkedinData.job_title,
           company: linkedinData.company,
@@ -71,10 +66,9 @@ const LinkedinVerificationScreen: React.FC = () => {
       // Simulate verification process
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Update the profile to mark as verified
+      // Update the profile to mark as verified - use a partial update
       if (profile) {
         await updateProfile({
-          ...profile, // Preserve existing profile
           linkedin_url: profile.linkedin_url || "https://linkedin.com/in/user",
           linkedin_verified: true
         });

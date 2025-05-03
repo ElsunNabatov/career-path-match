@@ -1,579 +1,394 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  ChevronRight, 
-  LogOut, 
-  Star, 
-  Settings, 
-  CreditCard, 
-  Heart, 
-  Shield, 
-  Gift, 
-  Upload,
-  Camera,
-  UserCog,
-  Eye,
-  EyeOff,
-  Sparkles
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { supabase, uploadFile } from "@/lib/supabase";
-import { useAuth } from "@/contexts/AuthContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { Edit, Check, User, EyeOff, Eye, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import PhotoUpload from "./PhotoUpload";
 import HobbiesSelector from "./HobbiesSelector";
 
 const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, updateProfile, logout, refreshUser } = useAuth();
-  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isHobbiesDialogOpen, setIsHobbiesDialogOpen] = useState(false);
-  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(profile?.hobbies as string[] || []);
-  const [editForm, setEditForm] = useState({
-    full_name: "",
-    job_title: "",
-    company: "",
-    bio: "",
-  });
-  const [isAnonymousMode, setIsAnonymousMode] = useState(Boolean(profile?.is_anonymous_mode));
-  const [isUploading, setIsUploading] = useState(false);
+  const { user, profile, updateProfile } = useAuth();
+  const [name, setName] = useState(profile?.full_name || "");
+  const [jobTitle, setJobTitle] = useState(profile?.job_title || "");
+  const [company, setCompany] = useState(profile?.company || "");
+  const [bio, setBio] = useState(profile?.bio || "");
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isAnonymousMode, setIsAnonymousMode] = useState(profile?.is_anonymous_mode || false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [editingHobbies, setEditingHobbies] = useState(false);
+  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(profile?.hobbies || []);
 
   useEffect(() => {
     if (profile) {
-      setEditForm({
-        full_name: profile.full_name || "",
-        job_title: profile.job_title || "",
-        company: profile.company || "",
-        bio: profile.bio || "",
-      });
-      
-      // If user has a photo in their profile, use it
-      if (profile.photos && profile.photos.length > 0) {
-        setImageUrl(profile.photos[0]);
-      }
-
+      setName(profile.full_name || "");
+      setJobTitle(profile.job_title || "");
+      setCompany(profile.company || "");
+      setBio(profile.bio || "");
+      setIsAnonymousMode(profile.is_anonymous_mode || false);
       setSelectedHobbies(profile.hobbies || []);
-      setIsAnonymousMode(Boolean(profile.is_anonymous_mode));
     }
   }, [profile]);
 
-  const handleLogout = async () => {
-    await logout();
-  };
-
-  const navigateTo = (path: string) => {
-    navigate(path);
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
+  // Update profile information
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsUpdating(true);
+      
+      // Create a partial profile update with just the fields we're changing
+      const profileUpdate = {
+        full_name: name,
+        job_title: jobTitle,
+        company: company,
+        bio: bio
+      };
+      
+      // Update profile
       if (profile) {
-        await updateProfile({
-          ...profile, // Preserve existing profile fields
-          full_name: editForm.full_name,
-          job_title: editForm.job_title,
-          company: editForm.company,
-          bio: editForm.bio
-        });
+        await updateProfile(profileUpdate);
       }
       
-      setIsEditing(false);
       toast.success("Profile updated successfully!");
-      await refreshUser();
     } catch (error: any) {
-      console.error("Error updating profile:", error);
+      console.error('Error updating profile:', error);
       toast.error(`Failed to update profile: ${error.message}`);
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      setIsUploading(true);
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("File size should not exceed 5MB");
-        return;
-      }
-
-      // Upload the file
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
-      
-      const publicUrl = await uploadFile('profile_images', fileName, file);
-      setImageUrl(publicUrl);
-
-      // Update user profile with the new photo
-      if (profile) {
-        const photos = profile?.photos || [];
-        await updateProfile({
-          ...profile, // Preserve existing profile fields
-          photos: [publicUrl, ...photos.slice(0, 4)] // Keep up to 5 photos
-        });
-      }
-      
-      await refreshUser();
-      toast.success("Profile picture updated!");
-    } catch (error: any) {
-      console.error("Error uploading file:", error);
-      toast.error(`Failed to upload image: ${error.message}`);
     } finally {
-      setIsUploading(false);
+      setIsUpdating(false);
+      setIsEditingBio(false);
     }
   };
 
-  const useLinkedinPhoto = async () => {
+  const handleEditBio = () => {
+    setIsEditingBio(true);
+  };
+
+  const handleCancelEditBio = () => {
+    setIsEditingBio(false);
+    setBio(profile?.bio || ""); // Revert to original bio
+  };
+
+  const handleOpenPhotoUpload = () => {
+    setShowPhotoUpload(true);
+  };
+
+  const handleClosePhotoUpload = () => {
+    setShowPhotoUpload(false);
+  };
+
+  // Handle photo update with a partial update
+  const handleAddPhoto = async (url: string) => {
+    if (!profile) return;
+    
     try {
-      // This is a placeholder - in a real app, you would fetch this from LinkedIn API
-      toast.info("This would connect to LinkedIn API to fetch your profile photo");
-      // For now, let's simulate this with a mock implementation
-      if (profile?.linkedin_verified) {
-        // Would normally get this URL from LinkedIn API
-        await updateProfile({
-          ...profile, // Preserve existing profile fields
-          photos: ["https://via.placeholder.com/150?text=LinkedIn+Photo"]
-        });
-        await refreshUser();
-      } else {
-        toast.error("Please verify your LinkedIn profile first");
-        navigate('/linkedin-verification');
-      }
+      // Create a new photos array with the existing photos plus the new one
+      const updatedPhotos = [...(profile.photos || []), url];
+      
+      // Only update the photos field
+      await updateProfile({ photos: updatedPhotos });
+      
+      toast.success("Photo added successfully!");
     } catch (error: any) {
-      toast.error(`Failed to use LinkedIn photo: ${error.message}`);
+      console.error('Error adding photo:', error);
+      toast.error(`Failed to add photo: ${error.message}`);
     }
   };
 
-  const handleToggleAnonymousMode = async () => {
+  // Handle photo deletion
+  const handleDeletePhoto = async (index: number) => {
+    if (!profile?.photos) return;
+    
     try {
-      const newValue = !isAnonymousMode;
-      setIsAnonymousMode(newValue);
+      const updatedPhotos = [...profile.photos];
+      updatedPhotos.splice(index, 1);
       
-      if (profile) {
-        await updateProfile({
-          ...profile, // Preserve existing profile fields
-          is_anonymous_mode: newValue
-        });
-      }
+      // Only update the photos field
+      await updateProfile({ photos: updatedPhotos });
       
-      toast.success(
-        newValue 
-          ? "Anonymous mode enabled. Your personal details are now hidden." 
-          : "Anonymous mode disabled. Your profile is now fully visible."
-      );
-      
-      await refreshUser();
+      toast.success("Photo removed successfully!");
     } catch (error: any) {
-      console.error("Error updating anonymous mode:", error);
-      toast.error(`Failed to update settings: ${error.message}`);
-      setIsAnonymousMode(!isAnonymousMode); // Revert the UI change
+      console.error('Error removing photo:', error);
+      toast.error(`Failed to remove photo: ${error.message}`);
     }
   };
-  
-  const handleSaveHobbies = async () => {
+
+  // Toggle anonymous mode with a partial update
+  const toggleAnonymousMode = async () => {
+    if (!profile) return;
+    
     try {
-      if (profile) {
-        await updateProfile({
-          ...profile, // Preserve existing profile fields
-          hobbies: selectedHobbies
-        });
-      }
+      setIsAnonymousMode(!isAnonymousMode);
+      
+      // Only update the is_anonymous_mode field
+      await updateProfile({
+        is_anonymous_mode: !isAnonymousMode
+      });
+      
+      toast.success(`Anonymous mode ${!isAnonymousMode ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      console.error('Error toggling anonymous mode:', error);
+      setIsAnonymousMode(isAnonymousMode); // revert UI change
+      toast.error(`Failed to update anonymity: ${error.message}`);
+    }
+  };
+
+  // Save hobbies with a partial update
+  const saveHobbies = async (selectedHobbies: string[]) => {
+    try {
+      setEditingHobbies(false);
+      
+      // Only update the hobbies field
+      await updateProfile({
+        hobbies: selectedHobbies
+      });
       
       toast.success("Hobbies updated successfully!");
-      await refreshUser();
-      setIsHobbiesDialogOpen(false);
     } catch (error: any) {
-      console.error("Error updating hobbies:", error);
+      console.error('Error updating hobbies:', error);
       toast.error(`Failed to update hobbies: ${error.message}`);
     }
   };
 
-  return (
-    <div className="pb-20">
-      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b">
-        <h1 className="text-xl font-bold text-center text-brand-blue">Profile</h1>
-      </div>
+  const handleEditHobbies = () => {
+    setEditingHobbies(true);
+  };
 
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center">
-            <Avatar className="h-20 w-20 border-2 border-brand-purple">
-              <AvatarImage src={imageUrl || profile?.photos?.[0]} alt={profile?.full_name || "User"} />
-              <AvatarFallback className="bg-brand-purple/10 text-brand-purple text-lg">
-                {profile?.full_name ? profile.full_name.charAt(0) : "U"}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="ml-4">
-              {!isEditing ? (
-                <>
-                  <div className="flex items-center">
-                    <h2 className="text-xl font-bold">{profile?.full_name || "New User"}</h2>
-                    {profile?.linkedin_verified && (
-                      <div className="ml-2 bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full flex items-center">
-                        <Shield className="h-3 w-3 mr-1" />
-                        Verified
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-gray-600">{profile?.job_title || "Add your title"}</p>
-                  <p className="text-gray-600">{profile?.company || "Add your company"}</p>
-                  {profile?.bio && <p className="text-gray-600 mt-1 text-sm">{profile.bio}</p>}
-                </>
-              ) : (
-                <form onSubmit={handleEditSubmit} className="space-y-2">
-                  <Input 
-                    name="full_name"
-                    value={editForm.full_name}
-                    onChange={handleInputChange}
-                    placeholder="Full Name"
-                    className="text-lg font-bold"
-                  />
-                  <Input 
-                    name="job_title"
-                    value={editForm.job_title}
-                    onChange={handleInputChange}
-                    placeholder="Job Title"
-                    className="text-sm"
-                  />
-                  <Input 
-                    name="company"
-                    value={editForm.company}
-                    onChange={handleInputChange}
-                    placeholder="Company"
-                    className="text-sm"
-                  />
-                  <Input 
-                    name="bio"
-                    value={editForm.bio}
-                    onChange={handleInputChange}
-                    placeholder="Short bio"
-                    className="text-sm"
-                  />
-                  <div className="flex gap-2 pt-1">
-                    <Button type="submit" size="sm">Save</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-              
-              {!isEditing && (
-                <button 
-                  onClick={() => setIsEditing(true)} 
-                  className="mt-1 text-xs text-brand-purple hover:underline"
-                >
-                  Edit Profile
-                </button>
-              )}
-              
-              <div className="mt-2 flex items-center">
-                <div className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full flex items-center text-sm">
-                  <Star className="h-3.5 w-3.5 mr-1 fill-current" />
-                  <span>{profile?.review_score || "N/A"}</span>
-                </div>
-                <span className="ml-2 text-xs text-gray-500">Review Score</span>
-              </div>
-            </div>
-          </div>
-          
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                className="rounded-full h-9 w-9 border-dashed border-gray-300"
-              >
-                <Camera className="h-4 w-4 text-gray-500" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Update Profile Picture</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div>
-                  <Label>Upload a photo</Label>
-                  <div className="mt-2">
-                    <label 
-                      htmlFor="photo-upload" 
-                      className="flex cursor-pointer items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-brand-purple transition-colors"
-                    >
-                      {isUploading ? (
-                        <div className="animate-pulse">Uploading...</div>
-                      ) : (
-                        <div className="text-center">
-                          <Upload className="mx-auto h-8 w-8 text-gray-400" />
-                          <p className="mt-1 text-sm text-gray-500">Click to upload or drag and drop</p>
-                          <p className="text-xs text-gray-400">PNG, JPG up to 5MB</p>
-                        </div>
-                      )}
-                      <input 
-                        id="photo-upload" 
-                        name="photo" 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleFileUpload} 
-                        className="sr-only" 
-                        disabled={isUploading}
-                      />
-                    </label>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={useLinkedinPhoto}
-                >
-                  <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="2" width="20" height="20" rx="2" fill="#0A66C2" />
-                    <path d="M8 10V16.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M8 6.5V7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M12 16.5V10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M16 16.5V12.5C16 11.5 15.5 10 14 10C12.5 10 12 11.5 12 12.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  Use LinkedIn Profile Photo
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+  const handleCancelHobbies = () => {
+    setEditingHobbies(false);
+  };
 
-        {/* Profile visibility toggle */}
-        <div className="bg-gray-50 rounded-lg p-3 mt-2 flex items-center justify-between">
-          <div className="flex items-center">
-            {isAnonymousMode ? (
-              <EyeOff className="h-5 w-5 text-gray-500 mr-2" />
-            ) : (
-              <Eye className="h-5 w-5 text-brand-purple mr-2" />
-            )}
-            <div>
-              <h3 className="font-semibold">
-                {isAnonymousMode ? "Anonymous Mode" : "Public Mode"}
-              </h3>
-              <p className="text-xs text-gray-600">
-                {isAnonymousMode ? 
-                  "Your personal details are hidden" : 
-                  "Your full profile is visible to others"}
-              </p>
-            </div>
-          </div>
-          <Switch 
-            checked={!isAnonymousMode}
-            onCheckedChange={handleToggleAnonymousMode}
-          />
-        </div>
-
-        <div className="bg-brand-purple/5 rounded-lg p-3 mt-2 flex items-center justify-between">
+  // Update subscription section to use profile?.subscription
+  const renderUpgradeSection = () => {
+    const userPlan = profile?.subscription || 'free';
+    
+    return (
+      <div className="bg-gradient-to-r from-brand-blue/10 to-brand-purple/10 p-4 rounded-lg mb-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Current Plan: {subscription || "Free"}</h3>
+            <h3 className="font-semibold text-lg">
+              {userPlan === 'free' ? 'Free Plan' : 
+               userPlan === 'premium' ? 'Premium Plan' : 'Premium+ Plan'}
+            </h3>
             <p className="text-sm text-gray-600">
-              {subscription === "premium" || subscription === "premium_plus" 
-                ? "Your premium features are active" 
-                : "Upgrade for more features"}
+              {userPlan === 'free' ? 'Upgrade for more features' : 'You have access to premium features'}
             </p>
           </div>
-          {(!subscription || subscription === "free") && (
-            <Button 
-              onClick={() => navigateTo('/premium')}
-              className="bg-brand-purple hover:bg-brand-purple/90"
-              size="sm"
+          {userPlan === 'free' && (
+            <Button
+              onClick={() => navigate('/premium')}
+              className="bg-gradient-to-r from-brand-blue to-brand-purple"
             >
               Upgrade
             </Button>
           )}
         </div>
+      </div>
+    );
+  };
 
-        {/* Hobbies section */}
-        <div className="mt-4">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-gray-700">Hobbies & Interests</h3>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-brand-purple"
-              onClick={() => setIsHobbiesDialogOpen(true)}
-            >
-              Edit
-            </Button>
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
-            {selectedHobbies && selectedHobbies.length > 0 ? (
-              selectedHobbies.map((hobby) => (
-                <div 
-                  key={hobby}
-                  className="bg-gray-50 px-3 py-1 rounded-full text-sm"
-                >
-                  {hobby}
+  return (
+    <div className="container py-12">
+      <Card className="w-full max-w-3xl mx-auto shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-2xl font-bold">Profile</CardTitle>
+          <Button variant="outline" onClick={() => navigate('/loyalty')}>
+            Loyalty
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {renderUpgradeSection()}
+
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="jobTitle">Job Title</Label>
+                <Input
+                  type="text"
+                  id="jobTitle"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="company">Company</Label>
+                <Input
+                  type="text"
+                  id="company"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="bio">Bio</Label>
+              {isEditingBio ? (
+                <div className="space-y-2">
+                  <Textarea
+                    id="bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    className="resize-none"
+                  />
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleCancelEditBio}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? (
+                        <>
+                          Updating <span className="animate-spin">...</span>
+                        </>
+                      ) : (
+                        <>
+                          Save <Check className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              ))
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className={cn("text-gray-700 py-2", bio ? "" : "italic text-gray-500")}>
+                    {bio || "No bio added yet."}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleEditBio}
+                  >
+                    <Edit className="h-4 w-4 mr-2" /> Edit
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full bg-gradient-to-r from-brand-blue to-brand-purple" disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  Updating <span className="animate-spin">...</span>
+                </>
+              ) : (
+                "Update Profile"
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold mb-4">Profile Photos</h4>
+            <div className="flex space-x-4 overflow-x-auto">
+              {profile?.photos && profile.photos.map((photo, index) => (
+                <div key={index} className="relative">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={photo} alt={`Profile photo ${index + 1}`} />
+                    <AvatarFallback>
+                      {profile?.full_name?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2"
+                    onClick={() => handleDeletePhoto(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              {profile?.photos && profile.photos.length < 5 && (
+                <div>
+                  <Button variant="secondary" onClick={handleOpenPhotoUpload}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Photo
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold mb-4">Hobbies</h4>
+            {editingHobbies ? (
+              <div>
+                <HobbiesSelector
+                  selectedHobbies={selectedHobbies}
+                  onSave={saveHobbies}
+                  onCancel={handleCancelHobbies}
+                />
+              </div>
             ) : (
-              <p className="text-sm text-gray-500 italic">No hobbies added yet</p>
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {selectedHobbies.length > 0 ? (
+                    selectedHobbies.map((hobby) => (
+                      <Badge key={hobby}>{hobby}</Badge>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 italic">No hobbies added yet.</p>
+                  )}
+                </div>
+                <Button variant="ghost" onClick={handleEditHobbies}>
+                  <Edit className="h-4 w-4 mr-2" /> Edit
+                </Button>
+              </div>
             )}
           </div>
-        </div>
 
-        <div className="mt-6 space-y-2">
-          <h3 className="font-semibold text-gray-700 px-1">My Profile</h3>
-          
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/hobbies')}
-          >
-            <div className="flex items-center">
-              <Heart className="h-5 w-5 mr-3 text-red-500" />
-              <span className="text-left">Interests & Hobbies</span>
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold mb-4">Anonymity</h4>
+            <div className="flex items-center justify-between">
+              <p className="text-gray-700">
+                {isAnonymousMode
+                  ? "You are currently in anonymous mode. Your name and photo are hidden from other users."
+                  : "You are currently visible to other users."}
+              </p>
+              <Button
+                variant="outline"
+                onClick={toggleAnonymousMode}
+              >
+                {isAnonymousMode ? (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" /> Disable
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="h-4 w-4 mr-2" /> Enable
+                  </>
+                )}
+              </Button>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/profile/preferences')}
-          >
-            <div className="flex items-center">
-              <UserCog className="h-5 w-5 mr-3 text-indigo-500" />
-              <span className="text-left">Match Preferences</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/advisor')}
-          >
-            <div className="flex items-center">
-              <Sparkles className="h-5 w-5 mr-3 text-amber-500" />
-              <span className="text-left">Dating Advisor</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-
-          <Separator className="my-2" />
-          
-          <h3 className="font-semibold text-gray-700 px-1">Account</h3>
-          
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/linkedin-verification')}
-          >
-            <div className="flex items-center">
-              <Shield className="h-5 w-5 mr-3 text-brand-blue" />
-              <span className="text-left">LinkedIn Verification</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/premium')}
-          >
-            <div className="flex items-center">
-              <Star className="h-5 w-5 mr-3 text-amber-500" />
-              <span className="text-left">Premium Plans</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/payment')}
-          >
-            <div className="flex items-center">
-              <CreditCard className="h-5 w-5 mr-3 text-green-600" />
-              <span className="text-left">Payment Methods</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/people/liked-by')}
-          >
-            <div className="flex items-center">
-              <Heart className="h-5 w-5 mr-3 text-red-500" />
-              <span className="text-left">Liked By</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between items-center flex h-auto py-3 px-4"
-            onClick={() => navigateTo('/loyalty')}
-          >
-            <div className="flex items-center">
-              <Gift className="h-5 w-5 mr-3 text-purple-500" />
-              <span className="text-left">Loyalty Program</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </Button>
-
-          <Separator className="my-2" />
-
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start items-center flex h-auto py-3 px-4 text-red-500 hover:text-red-600 hover:bg-red-50"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-5 w-5 mr-3" />
-            <span>Log out</span>
-          </Button>
-        </div>
-      </div>
-      
-      {/* Hobbies Dialog */}
-      <Dialog open={isHobbiesDialogOpen} onOpenChange={setIsHobbiesDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hobbies & Interests</DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            <HobbiesSelector 
-              selectedHobbies={selectedHobbies} 
-              onHobbiesChange={setSelectedHobbies}
-              maxSelections={10}
-            />
           </div>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsHobbiesDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveHobbies}>
-              Save Hobbies
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
+      <PhotoUpload
+        show={showPhotoUpload}
+        onClose={handleClosePhotoUpload}
+        onAddPhoto={handleAddPhoto}
+      />
     </div>
   );
 };

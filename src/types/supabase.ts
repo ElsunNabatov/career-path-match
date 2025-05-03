@@ -1,28 +1,24 @@
-
 export type Profile = {
   id: string;
-  created_at?: string;
-  updated_at?: string;
-  full_name: string;
-  birthday: string;
-  gender: string;
-  interested_in: string[];
-  bio: string;
-  linkedin_verified: boolean;
+  full_name?: string;
+  birthday?: string;
+  gender?: string;
+  interested_in?: string[];
+  bio?: string;
   job_title?: string;
   company?: string;
   education?: string;
   skills?: string[];
   photos?: string[];
   location?: string;
-  review_score?: number;
   linkedin_url?: string;
-  orientation?: 'straight' | 'gay' | 'lesbian';
-  life_path_number?: number;
-  zodiac_sign?: string;
-  hobbies?: string[] | any; // Updated to accept both string[] and Json type
+  linkedin_verified?: boolean;
+  review_score?: number;
   is_anonymous_mode?: boolean;
-  selfie_verified?: boolean;
+  hobbies?: string[];
+  created_at?: string;
+  updated_at?: string;
+  subscription?: string;
 };
 
 export type Match = {

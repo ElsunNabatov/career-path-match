@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -192,8 +193,8 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       return;
     }
     
-    // Use the subscription from auth context instead of profile
-    const userSubscriptionPlan = subscription || 'free';
+    // Use the userProfile?.subscription or default to 'free'
+    const userSubscriptionPlan = userProfile?.subscription || 'free';
     if (userSubscriptionPlan === 'free' && usageCount >= 3) {
       toast.error("You've used all your free advisor requests", {
         description: "Upgrade to Premium for unlimited AI advice",
