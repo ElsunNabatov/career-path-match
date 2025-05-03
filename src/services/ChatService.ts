@@ -7,7 +7,7 @@ import { ChatMessage, DateSchedule, ReviewData } from "@/types/chat";
 import { Review } from "@/types/supabase";
 
 // Re-export all services through ChatService to maintain API compatibility
-export { ChatMessage, DateSchedule } from "@/types/chat";
+export type { ChatMessage, DateSchedule } from "@/types/chat";
 
 export class ChatService {
   // MessageService methods
