@@ -192,8 +192,9 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
       return;
     }
     
-    const subscription = userProfile?.subscription || 'free';
-    if (subscription === 'free' && usageCount >= 3) {
+    // Use the subscription from auth context instead of profile
+    const userSubscriptionPlan = subscription || 'free';
+    if (userSubscriptionPlan === 'free' && usageCount >= 3) {
       toast.error("You've used all your free advisor requests", {
         description: "Upgrade to Premium for unlimited AI advice",
         action: {

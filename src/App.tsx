@@ -27,7 +27,7 @@ import LinkedinVerificationScreen from "./components/Verification/LinkedinVerifi
 import ReviewScreen from "./components/Review/ReviewScreen";
 import LikedByScreen from "./components/People/LikedByScreen";
 import DatingAdvisorScreen from "./components/Advisor/DatingAdvisorScreen";
-import AuthProvider from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {

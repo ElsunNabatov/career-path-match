@@ -508,7 +508,7 @@ const ChatScreen: React.FC = () => {
   };
 
   // Add the matchId variable that we'll pass to AdvisorBot
-  const matchId = match?.id;
+  const selectedMatchId = selectedMatch?.id;
 
   return (
     <div className="pb-16 h-full">
@@ -553,8 +553,12 @@ const ChatScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Dating Advisor for Chat */}
-      <AdvisorBot context="chat" matchId={matchId} />
+      {/* Dating Advisor Bot for Chat section */}
+      <AdvisorBot 
+        currentProfile={selectedMatch ? { id: selectedMatch.partnerId, full_name: selectedMatch.partnerName } as Profile : undefined}
+        context="chat" 
+        matchId={selectedMatchId}
+      />
     </div>
   );
 };

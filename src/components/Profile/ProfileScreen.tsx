@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -31,18 +30,18 @@ import HobbiesSelector from "./HobbiesSelector";
 
 const ProfileScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile, updateProfile, signOut, refreshUser } = useAuth();
+  const { user, profile, updateProfile, logout, refreshUser } = useAuth();
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
   const [isEditing, setIsEditing] = useState(false);
   const [isHobbiesDialogOpen, setIsHobbiesDialogOpen] = useState(false);
-  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(profile?.hobbies || []);
+  const [selectedHobbies, setSelectedHobbies] = useState<string[]>(profile?.hobbies as string[] || []);
   const [editForm, setEditForm] = useState({
     full_name: "",
     job_title: "",
     company: "",
     bio: "",
   });
-  const [isAnonymousMode, setIsAnonymousMode] = useState(profile?.is_anonymous_mode || true);
+  const [isAnonymousMode, setIsAnonymousMode] = useState(Boolean(profile?.is_anonymous_mode));
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -60,12 +59,12 @@ const ProfileScreen: React.FC = () => {
       }
 
       setSelectedHobbies(profile.hobbies || []);
-      setIsAnonymousMode(profile.is_anonymous_mode || true);
+      setIsAnonymousMode(Boolean(profile.is_anonymous_mode));
     }
   }, [profile]);
 
   const handleLogout = async () => {
-    await signOut();
+    await logout();
   };
 
   const navigateTo = (path: string) => {
@@ -75,12 +74,15 @@ const ProfileScreen: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await updateProfile({
-        full_name: editForm.full_name,
-        job_title: editForm.job_title,
-        company: editForm.company,
-        bio: editForm.bio
-      });
+      if (profile) {
+        await updateProfile({
+          ...profile, // Preserve existing profile fields
+          full_name: editForm.full_name,
+          job_title: editForm.job_title,
+          company: editForm.company,
+          bio: editForm.bio
+        });
+      }
       
       setIsEditing(false);
       toast.success("Profile updated successfully!");
@@ -116,10 +118,13 @@ const ProfileScreen: React.FC = () => {
       setImageUrl(publicUrl);
 
       // Update user profile with the new photo
-      const photos = profile?.photos || [];
-      await updateProfile({
-        photos: [publicUrl, ...photos.slice(0, 4)] // Keep up to 5 photos
-      });
+      if (profile) {
+        const photos = profile?.photos || [];
+        await updateProfile({
+          ...profile, // Preserve existing profile fields
+          photos: [publicUrl, ...photos.slice(0, 4)] // Keep up to 5 photos
+        });
+      }
       
       await refreshUser();
       toast.success("Profile picture updated!");
@@ -139,6 +144,7 @@ const ProfileScreen: React.FC = () => {
       if (profile?.linkedin_verified) {
         // Would normally get this URL from LinkedIn API
         await updateProfile({
+          ...profile, // Preserve existing profile fields
           photos: ["https://via.placeholder.com/150?text=LinkedIn+Photo"]
         });
         await refreshUser();
@@ -156,9 +162,12 @@ const ProfileScreen: React.FC = () => {
       const newValue = !isAnonymousMode;
       setIsAnonymousMode(newValue);
       
-      await updateProfile({
-        is_anonymous_mode: newValue
-      });
+      if (profile) {
+        await updateProfile({
+          ...profile, // Preserve existing profile fields
+          is_anonymous_mode: newValue
+        });
+      }
       
       toast.success(
         newValue 
@@ -176,9 +185,12 @@ const ProfileScreen: React.FC = () => {
   
   const handleSaveHobbies = async () => {
     try {
-      await updateProfile({
-        hobbies: selectedHobbies
-      });
+      if (profile) {
+        await updateProfile({
+          ...profile, // Preserve existing profile fields
+          hobbies: selectedHobbies
+        });
+      }
       
       toast.success("Hobbies updated successfully!");
       await refreshUser();
@@ -372,14 +384,14 @@ const ProfileScreen: React.FC = () => {
 
         <div className="bg-brand-purple/5 rounded-lg p-3 mt-2 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Current Plan: {profile?.subscription || "Free"}</h3>
+            <h3 className="font-semibold">Current Plan: {subscription || "Free"}</h3>
             <p className="text-sm text-gray-600">
-              {profile?.subscription === "premium" || profile?.subscription === "premium_plus" 
+              {subscription === "premium" || subscription === "premium_plus" 
                 ? "Your premium features are active" 
                 : "Upgrade for more features"}
             </p>
           </div>
-          {(!profile?.subscription || profile?.subscription === "free") && (
+          {(!subscription || subscription === "free") && (
             <Button 
               onClick={() => navigateTo('/premium')}
               className="bg-brand-purple hover:bg-brand-purple/90"
