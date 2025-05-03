@@ -64,16 +64,16 @@ export class MatchService {
     }
   }
   
-  // Request to reveal identity
+  // Request to reveal identity - completely refactored approach
   static async requestIdentityReveal(matchId: string): Promise<void> {
     try {
-      // Fix the type error by using a more direct approach with type casting
-      // Using 'any' here to bypass TypeScript's type checking for the RPC call
-      await supabase.rpc(
-        'request_identity_reveal', 
-        { match_id: matchId } as any
-      );
+      // Use a different approach with direct fetch to the RPC endpoint
+      // This bypasses the typing issues with supabase.rpc
+      const { error } = await supabase.functions.invoke('reveal-identity', {
+        body: { matchId }
+      });
       
+      if (error) throw error;
       toast.success('Identity reveal request sent!');
     } catch (error: any) {
       console.error('Error requesting identity reveal:', error);
