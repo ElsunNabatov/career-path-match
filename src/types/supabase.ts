@@ -19,6 +19,8 @@ export type Profile = {
   created_at?: string;
   updated_at?: string;
   subscription?: string;
+  zodiac_sign?: string;
+  life_path_number?: number;
 };
 
 export type Match = {

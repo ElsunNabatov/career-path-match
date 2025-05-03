@@ -10,8 +10,9 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  subscription: string;
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ user: User | null; error: Error | null }>;
+  signUp: (email: string, password: string, profileData: Partial<Profile>) => Promise<{ user: User | null; error: Error | null }>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithLinkedIn: () => Promise<void>;
@@ -24,6 +25,7 @@ export const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  subscription: 'free',
   signIn: async () => ({ user: null, error: null }),
   signUp: async () => ({ user: null, error: null }),
   signOut: async () => {},
@@ -38,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<string>('free');
 
   // Function to refresh user information
   const refreshUser = async () => {
@@ -60,7 +63,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (profileData) {
-          setProfile(profileData);
+          // Convert the hobbies field if it's not already an array
+          const processedProfile: Profile = {
+            ...profileData,
+            hobbies: Array.isArray(profileData.hobbies) ? profileData.hobbies : 
+                     (profileData.hobbies ? [profileData.hobbies.toString()] : [])
+          };
+          
+          setProfile(processedProfile);
+          setSubscription(processedProfile.subscription || 'free');
         }
       }
     } catch (error) {
@@ -86,7 +97,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError) {
           console.error('Error fetching profile:', profileError);
         } else {
-          setProfile(profileData);
+          // Convert the hobbies field if it's not already an array
+          const processedProfile: Profile = {
+            ...profileData,
+            hobbies: Array.isArray(profileData.hobbies) ? profileData.hobbies : 
+                     (profileData.hobbies ? [profileData.hobbies.toString()] : [])
+          };
+          
+          setProfile(processedProfile);
+          setSubscription(processedProfile.subscription || 'free');
         }
       }
       
@@ -109,10 +128,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError) {
           console.error('Error fetching profile:', profileError);
         } else {
-          setProfile(profileData);
+          // Convert the hobbies field if it's not already an array
+          const processedProfile: Profile = {
+            ...profileData,
+            hobbies: Array.isArray(profileData.hobbies) ? profileData.hobbies : 
+                     (profileData.hobbies ? [profileData.hobbies.toString()] : [])
+          };
+          
+          setProfile(processedProfile);
+          setSubscription(processedProfile.subscription || 'free');
         }
       } else {
         setProfile(null);
+        setSubscription('free');
       }
     });
     
@@ -139,14 +167,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Sign up with email/password
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, profileData: Partial<Profile>) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            full_name: fullName,
+            full_name: profileData.full_name || "",
           },
         },
       });
@@ -177,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setSubscription('free');
   };
 
   // Sign in with Google
@@ -196,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithLinkedIn = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'linkedin',
+        provider: 'linkedin_oidc',
       });
       
       if (error) throw error;
@@ -234,7 +263,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Update local profile state
       setProfile(prev => {
         if (!prev) return null;
-        return { ...prev, ...updates };
+        const updatedProfile = { ...prev, ...updates };
+        
+        // If subscription is being updated, update the state
+        if (updates.subscription) {
+          setSubscription(updates.subscription);
+        }
+        
+        return updatedProfile;
       });
       
     } catch (error) {
@@ -247,6 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     profile,
     loading,
+    subscription,
     signIn,
     signUp,
     signOut,

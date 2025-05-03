@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, SlidersHorizontal, Heart, MapPin, Filter } from "lucide-react";
@@ -90,11 +89,21 @@ const PeopleScreen: React.FC = () => {
           .filter(Boolean);
         
         setIndustries(['All', ...new Set(allIndustries)]);
-        setProfiles(data);
+        
+        // Ensure correct typing by processing the profiles
+        const typedProfiles = data.map(profile => {
+          return {
+            ...profile,
+            hobbies: Array.isArray(profile.hobbies) ? profile.hobbies : 
+                    (profile.hobbies ? [profile.hobbies.toString()] : [])
+          } as Profile;
+        });
+        
+        setProfiles(typedProfiles);
         
         // Analyze compatibility for each profile
         const compatResults: any = {};
-        data.forEach((targetProfile: Profile) => {
+        typedProfiles.forEach((targetProfile: Profile) => {
           const result = CompatibilityService.analyzeCompatibility(profile, targetProfile);
           compatResults[targetProfile.id] = result;
         });

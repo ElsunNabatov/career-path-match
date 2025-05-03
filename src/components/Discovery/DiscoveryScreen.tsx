@@ -55,7 +55,8 @@ const DiscoveryScreen: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  const { user, profile, subscription } = useAuth();
+  const { user, profile } = useAuth();
+  const userSubscription = profile?.subscription || 'free';
   
   const zodiacSigns = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", 
@@ -76,16 +77,16 @@ const DiscoveryScreen: React.FC = () => {
 
   useEffect(() => {
     // Set like limit based on subscription
-    if (subscription === "premium") {
+    if (userSubscription === "premium") {
       setLikeLimit(30);
-    } else if (subscription === "premium_plus") {
+    } else if (userSubscription === "premium_plus") {
       setLikeLimit(100);
     } else {
       setLikeLimit(10);
     }
     
     fetchProfiles();
-  }, [subscription]);
+  }, [userSubscription]);
 
   useEffect(() => {
     applyFilters();

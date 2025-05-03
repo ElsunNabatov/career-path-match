@@ -336,7 +336,8 @@ const ProfileScreen: React.FC = () => {
               <div>
                 <HobbiesSelector
                   selectedHobbies={selectedHobbies}
-                  onSave={saveHobbies}
+                  onChange={setSelectedHobbies}
+                  onSave={() => saveHobbies(selectedHobbies)}
                   onCancel={handleCancelHobbies}
                 />
               </div>

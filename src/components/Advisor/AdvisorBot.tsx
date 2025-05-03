@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -255,7 +254,7 @@ const AdvisorBot: React.FC<AdvisorBotProps> = ({ currentProfile, context = 'peop
           profile.is_anonymous_mode ? "this person" : profile.full_name
         } would be: ${profile.job_title ? `their experience as a ${profile.job_title}` : "their career journey"}, ${
           profile.hobbies && profile.hobbies.length > 0 ? `their interest in ${profile.hobbies[0]}` : "their hobbies"
-        }, or asking about their ${profile.zodiac_sign || "zodiac sign"} traits.`;
+        }, or asking about their ${profile.zodiac_sign || "interests"} traits.`;
       }
     }
     

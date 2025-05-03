@@ -7,11 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "../ui/badge";
 
 const BottomNavigation: React.FC = () => {
-  const { subscription } = useAuth();
+  const { profile } = useAuth();
   
-  // Determine badge for premium status
+  // Determine badge for premium status based on profile
   const PremiumBadge = () => {
-    if (subscription === 'premium_plus') {
+    if (profile?.subscription === 'premium_plus') {
       return (
         <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-[9px]">
           PLUS
@@ -19,7 +19,7 @@ const BottomNavigation: React.FC = () => {
       );
     }
     
-    if (subscription === 'premium') {
+    if (profile?.subscription === 'premium') {
       return (
         <Badge className="absolute -top-2 -right-2 bg-brand-purple text-[9px]">
           PRO
@@ -41,7 +41,7 @@ const BottomNavigation: React.FC = () => {
           icon={<Gift />} 
           label="Loyalty" 
           badge={
-            (subscription === 'premium' || subscription === 'premium_plus') && (
+            (profile?.subscription === 'premium' || profile?.subscription === 'premium_plus') && (
               <div className="absolute top-0 right-5 h-1.5 w-1.5 bg-green-500 rounded-full"></div>
             )
           }

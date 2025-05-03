@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,6 +66,7 @@ const SignUpForm = () => {
       const zodiacSign = calculateZodiacSign(birthDate);
       const lifePathNumber = calculateLifePathNumber(birthDate);
       
+      // Pass profile data as an object, not a string
       await signUp(values.email, values.password, {
         full_name: "", // Will be filled from LinkedIn data
         linkedin_url: values.linkedinUrl,
