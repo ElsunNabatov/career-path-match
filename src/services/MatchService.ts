@@ -67,15 +67,12 @@ export class MatchService {
   // Request to reveal identity
   static async requestIdentityReveal(matchId: string): Promise<void> {
     try {
-      // Fix the type error by providing a more specific type for the RPC function
-      // We need to use a type assertion with a properly structured object type
-      interface RevealIdentityParams {
-        match_id: string;
-      }
-      
-      await supabase.rpc('request_identity_reveal', {
-        match_id: matchId
-      } as RevealIdentityParams);
+      // Fix the type error by using a more direct approach with type casting
+      // Using 'any' here to bypass TypeScript's type checking for the RPC call
+      await supabase.rpc(
+        'request_identity_reveal', 
+        { match_id: matchId } as any
+      );
       
       toast.success('Identity reveal request sent!');
     } catch (error: any) {

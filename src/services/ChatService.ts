@@ -3,8 +3,8 @@ import { MessageService } from "./MessageService";
 import { MatchService } from "./MatchService";
 import { DateService } from "./DateService";
 import { ReviewService } from "./ReviewService";
-import { ChatMessage, DateSchedule, ReviewData } from "@/types/chat";
-import { Review } from "@/types/supabase";
+import { type ChatMessage, type DateSchedule, type ReviewData } from "@/types/chat";
+import { type Review } from "@/types/supabase";
 
 // Re-export all services through ChatService to maintain API compatibility
 export type { ChatMessage, DateSchedule } from "@/types/chat";
