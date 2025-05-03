@@ -67,8 +67,16 @@ export class MatchService {
   // Request to reveal identity
   static async requestIdentityReveal(matchId: string): Promise<void> {
     try {
-      // Use a type assertion to handle the Supabase type issue
-      await supabase.rpc('request_identity_reveal', { match_id: matchId } as any);
+      // Fix the type error by providing a more specific type for the RPC function
+      // We need to use a type assertion with a properly structured object type
+      interface RevealIdentityParams {
+        match_id: string;
+      }
+      
+      await supabase.rpc('request_identity_reveal', {
+        match_id: matchId
+      } as RevealIdentityParams);
+      
       toast.success('Identity reveal request sent!');
     } catch (error: any) {
       console.error('Error requesting identity reveal:', error);
