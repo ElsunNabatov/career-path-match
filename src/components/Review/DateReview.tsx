@@ -7,7 +7,6 @@ import { StarIcon } from 'lucide-react';
 import { ChatService } from '@/services/ChatService';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
-import { Review } from '@/types/supabase';
 
 interface DateReviewProps {
   dateId: string;
