@@ -59,10 +59,10 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
     if (date) {
       // Create a new Date object from the date parameter
       const newDate = new Date(date);
-      // Convert to ISO string for zodiac and lifepath calculation
-      const dateIsoString = newDate.toISOString();
-      const zodiac = getZodiacSign(dateIsoString);
-      const lifePath = calculateLifePathNumber(dateIsoString);
+      
+      // Calculate zodiac and life path number using the date object directly
+      const zodiac = getZodiacSign(newDate);
+      const lifePath = calculateLifePathNumber(newDate);
       
       setFormData(prev => ({
         ...prev,
