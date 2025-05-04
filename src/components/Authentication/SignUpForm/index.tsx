@@ -99,7 +99,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
         {
           full_name: values.fullName,
           linkedin_url: values.linkedinUrl,
-          birthday: values.birthday?.toISOString(),
+          birthday: values.birthday ? values.birthday.toISOString() : undefined,
           zodiac_sign: values.zodiacSign,
           life_path_number: values.lifePathNumber,
           selfie_verified: selfieVerified,
