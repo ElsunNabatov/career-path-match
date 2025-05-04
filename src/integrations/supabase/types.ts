@@ -228,6 +228,7 @@ export type Database = {
           location: string | null
           photos: string[] | null
           review_score: number | null
+          selfie_verified: boolean | null
           skills: string[] | null
           updated_at: string
         }
@@ -249,6 +250,7 @@ export type Database = {
           location?: string | null
           photos?: string[] | null
           review_score?: number | null
+          selfie_verified?: boolean | null
           skills?: string[] | null
           updated_at?: string
         }
@@ -270,6 +272,7 @@ export type Database = {
           location?: string | null
           photos?: string[] | null
           review_score?: number | null
+          selfie_verified?: boolean | null
           skills?: string[] | null
           updated_at?: string
         }
