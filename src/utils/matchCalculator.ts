@@ -1,3 +1,4 @@
+
 export const getZodiacSign = (date: Date | undefined): string => {
   if (!date) return '';
 

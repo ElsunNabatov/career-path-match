@@ -51,6 +51,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   
   const isPremiumRequired = likesUsed >= likeLimit;
 
+  // Ensure skills array is valid before using it
+  const safeSkills = Array.isArray(profile.skills) ? profile.skills : [];
+
   return (
     <Card className="w-full overflow-hidden card-shadow max-w-md mx-auto">
       <div className="relative">
@@ -134,7 +137,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
               <h4 className="font-semibold text-sm mt-3 text-gray-700">Skills</h4>
               <div className="flex flex-wrap gap-1">
-                {profile.skills.slice(0, 3).map((skill) => (
+                {safeSkills.slice(0, 3).map((skill) => (
                   <span
                     key={skill}
                     className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
@@ -142,9 +145,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                     {skill}
                   </span>
                 ))}
-                {profile.skills.length > 3 && (
+                {safeSkills.length > 3 && (
                   <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                    +{profile.skills.length - 3}
+                    +{safeSkills.length - 3}
                   </span>
                 )}
               </div>
@@ -161,7 +164,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
               {showDetails && (
                 <div className="mt-3 space-y-3 pt-3 border-t">
-                  {insights.length > 0 && (
+                  {Array.isArray(insights) && insights.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-sm text-gray-700">Insights</h4>
                       <ul className="list-disc pl-5 text-sm mt-1">
@@ -176,7 +179,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                     <div>
                       <h4 className="font-semibold text-sm text-green-600">Pros</h4>
                       <ul className="list-disc pl-5 text-sm mt-1">
-                        {pros.map((pro, i) => (
+                        {Array.isArray(pros) && pros.map((pro, i) => (
                           <li key={i}>{pro}</li>
                         ))}
                       </ul>
@@ -184,7 +187,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                     <div>
                       <h4 className="font-semibold text-sm text-red-500">Cons</h4>
                       <ul className="list-disc pl-5 text-sm mt-1">
-                        {cons.map((con, i) => (
+                        {Array.isArray(cons) && cons.map((con, i) => (
                           <li key={i}>{con}</li>
                         ))}
                       </ul>
