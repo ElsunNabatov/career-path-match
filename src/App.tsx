@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
 import PeopleScreen from "./components/People/PeopleScreen";
@@ -26,7 +26,8 @@ import LinkedinVerificationScreen from "./components/Verification/LinkedinVerifi
 import ReviewScreen from "./components/Review/ReviewScreen";
 import LikedByScreen from "./components/People/LikedByScreen";
 import DatingAdvisorScreen from "./components/Advisor/DatingAdvisorScreen";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,29 @@ const queryClient = new QueryClient({
   },
 });
 
+// Route guard component to handle redirects based on auth state
+const RequireAuth = ({ requireVerification = true }) => {
+  const { user, isLoading, needsLinkedInVerification } = useAuth();
+  const location = useLocation();
+  
+  if (isLoading) {
+    // Show loading state while checking auth
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+  
+  if (!user) {
+    // Redirect to login if not authenticated
+    return <Navigate to="/signin" state={{ from: location }} replace />;
+  }
+  
+  if (requireVerification && needsLinkedInVerification) {
+    // Redirect to verification if needed
+    return <Navigate to="/verification" replace />;
+  }
+  
+  return <Outlet />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -46,27 +70,36 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Navigate to="/signin" replace />} />
+            
+            {/* Public routes */}
             <Route path="/signin" element={<SignInScreen />} />
             <Route path="/signup" element={<SignUpScreen />} />
             <Route path="/verification" element={<VerificationScreen />} />
             <Route path="/reset-password" element={<ResetPasswordScreen />} />
-            <Route path="/onboarding" element={<OnboardingScreen />} />
-            <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
-            <Route path="/onboarding/preferences" element={<PreferencesForm />} />
-            <Route path="/linkedin-verification" element={<LinkedinVerificationScreen />} />
             
-            <Route path="/" element={<AppLayout />}>
-              <Route path="/people" element={<PeopleScreen />} />
-              <Route path="/people/liked-by" element={<LikedByScreen />} />
-              <Route path="/chats" element={<ChatScreen />} />
-              <Route path="/calendar" element={<CalendarScreen />} />
-              <Route path="/calendar/schedule" element={<SchedulePage />} />
-              <Route path="/profile" element={<ProfileScreen />} />
-              <Route path="/premium" element={<PremiumScreen />} />
-              <Route path="/payment" element={<PaymentScreen />} />
-              <Route path="/loyalty" element={<LoyaltyScreen />} />
-              <Route path="/advisor" element={<DatingAdvisorScreen />} />
-              <Route path="/reviews/:matchId" element={<ReviewScreen />} />
+            {/* Routes that require authentication but not verification */}
+            <Route element={<RequireAuth requireVerification={false} />}>
+              <Route path="/onboarding" element={<OnboardingScreen />} />
+              <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
+              <Route path="/onboarding/preferences" element={<PreferencesForm />} />
+              <Route path="/linkedin-verification" element={<LinkedinVerificationScreen />} />
+            </Route>
+            
+            {/* Routes that require full verification */}
+            <Route element={<RequireAuth requireVerification={true} />}>
+              <Route element={<AppLayout />}>
+                <Route path="/people" element={<PeopleScreen />} />
+                <Route path="/people/liked-by" element={<LikedByScreen />} />
+                <Route path="/chats" element={<ChatScreen />} />
+                <Route path="/calendar" element={<CalendarScreen />} />
+                <Route path="/calendar/schedule" element={<SchedulePage />} />
+                <Route path="/profile" element={<ProfileScreen />} />
+                <Route path="/premium" element={<PremiumScreen />} />
+                <Route path="/payment" element={<PaymentScreen />} />
+                <Route path="/loyalty" element={<LoyaltyScreen />} />
+                <Route path="/advisor" element={<DatingAdvisorScreen />} />
+                <Route path="/reviews/:matchId" element={<ReviewScreen />} />
+              </Route>
             </Route>
             
             <Route path="*" element={<NotFound />} />

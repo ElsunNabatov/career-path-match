@@ -1,8 +1,8 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser, getUserProfile } from '@/lib/supabase';
 import { Profile } from '@/types/supabase';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AuthContextType {
   session: Session | null;
@@ -18,6 +18,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   isLoading: boolean;
   subscription?: string;
+  needsLinkedInVerification: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,19 +29,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<string>('free');
+  const [needsLinkedInVerification, setNeedsLinkedInVerification] = useState<boolean>(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const loadSession = async () => {
       setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
 
+      // Set up auth state listener FIRST
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (_event, session) => {
+          console.log("Auth state changed:", _event, session?.user?.email);
+          setSession(session);
+          setUser(session?.user || null);
+
+          if (session?.user) {
+            // Use setTimeout to prevent deadlocks with Supabase auth
+            setTimeout(() => {
+              loadUserProfile(session.user.id).then(profile => {
+                // Check if user needs LinkedIn verification
+                const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
+                setNeedsLinkedInVerification(needsVerification);
+                
+                // Redirect based on verification status
+                if (location.pathname === '/signin' || location.pathname === '/signup') {
+                  if (needsVerification) {
+                    navigate('/verification');
+                  } else {
+                    navigate('/people');
+                  }
+                }
+              });
+            }, 0);
+          } else {
+            setProfile(null);
+            // Redirect to signin if on a protected route
+            const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
+            if (!publicRoutes.includes(location.pathname)) {
+              navigate('/signin');
+            }
+          }
+        }
+      );
+
+      // THEN check for existing session
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user || null);
 
       if (session?.user) {
         await loadUserProfile(session.user.id);
       }
+      
       setIsLoading(false);
+      
+      return () => {
+        subscription.unsubscribe();
+      };
     };
 
     loadSession();
@@ -55,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(null);
       }
     });
-  }, []);
+  }, [navigate, location.pathname]);
 
   const processProfileData = (profileData: any): Profile => {
     // Handle the hobbies field which might come as Json or string[]
@@ -118,6 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscription(subscriptionData.plan);
       }
       
+      // Check if user needs LinkedIn verification
+      const needsVerification = !processedProfile?.linkedin_verified || !processedProfile?.selfie_verified;
+      setNeedsLinkedInVerification(needsVerification);
+      
       setProfile(processedProfile);
       return processedProfile;
     } catch (error) {
@@ -175,8 +225,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      console.log("Starting Google sign-in flow");
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/verification'
+        }
       });
 
       if (error) throw error;
@@ -189,8 +243,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithLinkedIn = async () => {
     try {
+      console.log("Starting LinkedIn sign-in flow");
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
+        options: {
+          redirectTo: window.location.origin + '/verification'
+        }
       });
 
       if (error) throw error;
@@ -272,6 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser,
     isLoading,
     subscription,
+    needsLinkedInVerification,
   };
 
   return (
