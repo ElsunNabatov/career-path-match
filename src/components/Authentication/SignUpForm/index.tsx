@@ -57,9 +57,8 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
 
   const handleBirthdayChange = (date: Date | undefined) => {
     if (date) {
-      const dateStr = date.toISOString();
-      const zodiac = getZodiacSign(dateStr);
-      const lifePath = calculateLifePathNumber(dateStr);
+      const zodiac = getZodiacSign(date.toISOString());
+      const lifePath = calculateLifePathNumber(date.toISOString());
       setFormData(prev => ({
         ...prev,
         birthday: date,

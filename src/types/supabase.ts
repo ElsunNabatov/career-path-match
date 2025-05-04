@@ -88,6 +88,7 @@ export interface Hobby {
   id: string;
   name: string;
   category: string;
+  icon?: string; // Added icon property
 }
 
 export interface AIAdvisorInteraction {
