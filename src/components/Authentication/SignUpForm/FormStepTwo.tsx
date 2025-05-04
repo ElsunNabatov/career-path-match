@@ -1,9 +1,9 @@
 
 import React from "react";
 import { UseFormReturn } from "react-hook-form";
-import { SignUpFormValues } from "./index";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { SignUpFormValues } from "./index";
 
 interface FormStepTwoProps {
   form: UseFormReturn<SignUpFormValues>;

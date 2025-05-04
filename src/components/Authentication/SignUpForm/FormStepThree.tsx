@@ -1,11 +1,11 @@
 
 import React from "react";
 import { UseFormReturn } from "react-hook-form";
-import { SignUpFormValues } from "./index";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Camera, CheckCircle2 } from "lucide-react";
+import { SignUpFormValues } from "./index";
 
 interface FormStepThreeProps {
   form: UseFormReturn<SignUpFormValues>;

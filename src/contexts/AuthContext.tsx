@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser, getUserProfile } from '@/lib/supabase';
@@ -10,9 +11,13 @@ interface AuthContextType {
   signUp: (email: string, password: string, profileData: Partial<Profile>) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<any>;
+  signInWithLinkedIn: () => Promise<any>;
+  resetPassword: (email: string) => Promise<any>;
   updateProfile: (profileData: Partial<Profile>) => Promise<void>;
   refreshUser: () => Promise<void>;
   isLoading: boolean;
+  subscription?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [subscription, setSubscription] = useState<string>('free');
 
   useEffect(() => {
     const loadSession = async () => {
@@ -81,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return {
       ...profileData,
       hobbies: processedHobbies
-    };
+    } as Profile;
   };
 
   // Use the processProfileData function when setting profile state
@@ -109,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Add subscription information to the profile
       if (subscriptionData) {
-        processedProfile.subscription = subscriptionData.plan;
+        setSubscription(subscriptionData.plan);
       }
       
       setProfile(processedProfile);
@@ -167,6 +173,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      throw error;
+    }
+  };
+
+  const signInWithLinkedIn = async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'linkedin_oidc',
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error signing in with LinkedIn:", error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -201,15 +249,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Use processProfileData in other places that handle profiles
   const refreshUser = async () => {
     if (user) {
       const refreshedProfile = await loadUserProfile(user.id);
       if (refreshedProfile) {
-        setProfile(processedProfile => ({
-          ...processedProfile,
-          ...refreshedProfile
-        }));
+        setProfile(refreshedProfile);
       }
     }
   };
@@ -220,10 +264,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     signUp,
     signIn,
+    signInWithGoogle,
+    signInWithLinkedIn,
+    resetPassword,
     signOut,
     updateProfile,
     refreshUser,
     isLoading,
+    subscription,
   };
 
   return (

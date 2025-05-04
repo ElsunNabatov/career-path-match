@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +13,7 @@ import { calculateLifePathNumber, getZodiacSign } from '@/utils/matchCalculator'
 import { Switch } from "@/components/ui/switch"
 import { Profile } from '@/types/supabase';
 
-interface FormData {
+export interface SignUpFormValues {
   fullName: string;
   email: string;
   password: string;
@@ -21,6 +22,7 @@ interface FormData {
   zodiacSign: string;
   lifePathNumber: number;
   anonymousMode: boolean;
+  orientation: 'straight' | 'gay' | 'lesbian';
 }
 
 interface SignUpFormProps {
@@ -32,7 +34,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
   const [error, setError] = useState<string | null>(null);
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<SignUpFormValues>({
     fullName: '',
     email: '',
     password: '',
@@ -41,6 +43,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
     zodiacSign: '',
     lifePathNumber: 0,
     anonymousMode: false,
+    orientation: 'straight',
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,8 +56,9 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
 
   const handleBirthdayChange = (date: Date | undefined) => {
     if (date) {
-      const zodiac = getZodiacSign(date.toISOString());
-      const lifePath = calculateLifePathNumber(date.toISOString());
+      const dateStr = date.toISOString();
+      const zodiac = getZodiacSign(dateStr);
+      const lifePath = calculateLifePathNumber(dateStr);
       setFormData(prev => ({
         ...prev,
         birthday: date,
@@ -71,7 +75,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
     }));
   };
 
-  const handleSignUp = async (values: FormData) => {
+  const handleSignUp = async (values: SignUpFormValues) => {
     setIsSubmitting(true);
     setError(null);
     
@@ -99,7 +103,8 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ selfieVerified }) => {
           zodiac_sign: values.zodiacSign,
           life_path_number: values.lifePathNumber,
           selfie_verified: selfieVerified,
-          is_anonymous_mode: values.anonymousMode
+          is_anonymous_mode: values.anonymousMode,
+          orientation: values.orientation
         } as Partial<Profile>
       );
       

@@ -1,16 +1,14 @@
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
 
-import SignUpForm from "./SignUpForm";
 import SelfieDialog from "./SignUpForm/SelfieDialog";
+import { useSignUpForm } from "./SignUpForm/useSignUpForm";
 
 const SignUpScreen = () => {
   const navigate = useNavigate();
@@ -26,7 +24,7 @@ const SignUpScreen = () => {
     cancelCamera,
     renderStepContent,
     onSubmit
-  } = SignUpForm();
+  } = useSignUpForm();
 
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10 p-4">

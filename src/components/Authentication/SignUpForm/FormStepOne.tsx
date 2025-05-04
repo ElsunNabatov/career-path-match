@@ -1,12 +1,12 @@
 
 import React from "react";
 import { UseFormReturn } from "react-hook-form";
-import { SignUpFormValues } from "./index";
 import { Separator } from "@/components/ui/separator";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail, Linkedin } from "lucide-react";
+import { SignUpFormValues } from "./index";
 
 interface FormStepOneProps {
   form: UseFormReturn<SignUpFormValues>;
