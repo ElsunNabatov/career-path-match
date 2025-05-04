@@ -3,6 +3,7 @@ import React from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { SignUpFormValues } from "./index";
 
 interface FormStepTwoProps {
@@ -41,11 +42,11 @@ const FormStepTwo: React.FC<FormStepTwoProps> = ({ form, isLoading }) => {
           <FormItem>
             <FormLabel className="text-gray-700">Birth Date</FormLabel>
             <FormControl>
-              <Input 
-                type="date" 
-                {...field}
+              <DatePicker
+                value={field.value}
+                onSelect={field.onChange}
                 disabled={isLoading}
-                className="border-gray-300 focus-visible:ring-brand-purple" 
+                className="border-gray-300 w-full"
               />
             </FormControl>
             <FormMessage />

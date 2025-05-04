@@ -1,9 +1,8 @@
-
 import { MessageService } from "./MessageService";
 import { MatchService } from "./MatchService";
 import { DateService } from "./DateService";
 import { ReviewService } from "./ReviewService";
-import { supabase } from "@/lib/supabase";
+import { supabase } from '@/lib/supabase';
 import { type ChatMessage, type DateSchedule, type ReviewData } from "@/types/chat";
 import { type Review } from "@/types/supabase";
 

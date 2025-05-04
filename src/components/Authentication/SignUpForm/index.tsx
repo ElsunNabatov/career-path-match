@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from 'sonner';
 import { Loader2 } from "lucide-react";
-import { DatePicker } from "@/components/ui/date-picker"
 import { format } from 'date-fns'
 import { calculateLifePathNumber, getZodiacSign } from '@/utils/matchCalculator';
 import { Switch } from "@/components/ui/switch"
 import { Profile } from '@/types/supabase';
+import { DatePicker } from "@/components/ui/date-picker";
+import { useSignUpForm } from './useSignUpForm';
 
 export interface SignUpFormValues {
   fullName: string;

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -16,10 +16,11 @@ const LinkedinVerificationScreen: React.FC = () => {
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
+    // Check if profile exists and has linkedin_verified property
     if (profile?.linkedin_verified) {
       setVerified(true);
     }
-  }, [profile?.linkedin_verified]);
+  }, [profile]);
 
   const mockLinkedinAuthentication = async () => {
     setIsLoading(true);
