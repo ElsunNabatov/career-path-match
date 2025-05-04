@@ -1,3 +1,4 @@
+
 export function getZodiacSign(birthdate: Date | string): string {
   // Convert to Date object if string is passed
   const date = typeof birthdate === 'string' ? new Date(birthdate) : birthdate;
@@ -58,4 +59,18 @@ export function calculateLifePathNumber(birthdate: Date | string): number {
   }
   
   return sum;
+}
+
+/**
+ * Returns the appropriate Tailwind CSS color class based on compatibility score
+ * @param score - A compatibility score between 0-100
+ * @returns Tailwind CSS color class for text
+ */
+export function getCompatibilityColorClass(score: number): string {
+  if (score >= 90) return 'text-green-600';
+  if (score >= 75) return 'text-emerald-500';
+  if (score >= 60) return 'text-blue-500';
+  if (score >= 45) return 'text-amber-500';
+  if (score >= 30) return 'text-orange-500';
+  return 'text-red-500';
 }
