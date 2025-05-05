@@ -10,21 +10,21 @@ interface ProfileCardProps {
   profile: {
     id: string;
     name?: string;
-    age: number;
-    jobTitle: string;
-    industry: string;
-    education: string;
-    skills: string[];
-    zodiacSign: string;
-    lifePath: number;
+    age?: number;
+    jobTitle?: string;
+    industry?: string;
+    education?: string;
+    skills?: string[];
+    zodiacSign?: string;
+    lifePath?: number;
     photo?: string;
     company?: string;
     isAnonymous: boolean;
   };
   compatibilityScore: number;
-  insights: string[];
-  pros: string[];
-  cons: string[];
+  insights?: string[];
+  pros?: string[];
+  cons?: string[];
   onLike?: (id: string) => void;
   onSkip?: (id: string) => void;
   onCoffee?: (id: string) => void;
@@ -36,9 +36,9 @@ interface ProfileCardProps {
 const ProfileCard: React.FC<ProfileCardProps> = ({
   profile,
   compatibilityScore,
-  insights,
-  pros,
-  cons,
+  insights = [],
+  pros = [],
+  cons = [],
   onLike,
   onSkip,
   onCoffee,
@@ -51,8 +51,11 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   
   const isPremiumRequired = likesUsed >= likeLimit;
 
-  // Ensure skills array is valid before using it
+  // Ensure all arrays are valid
   const safeSkills = Array.isArray(profile.skills) ? profile.skills : [];
+  const safeInsights = Array.isArray(insights) ? insights : [];
+  const safePros = Array.isArray(pros) ? pros : [];
+  const safeCons = Array.isArray(cons) ? cons : [];
 
   return (
     <Card className="w-full overflow-hidden card-shadow max-w-md mx-auto">
@@ -110,12 +113,14 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                 <div>
                   <h3 className="font-bold text-xl">
                     {profile.isAnonymous ? "Anonymous" : profile.name}
-                    <span className="ml-2 text-gray-600">
-                      {profile.age}
-                    </span>
+                    {profile.age && (
+                      <span className="ml-2 text-gray-600">
+                        {profile.age}
+                      </span>
+                    )}
                   </h3>
                   <p className="text-gray-600">
-                    {profile.jobTitle} {profile.isAnonymous ? `in ${profile.industry}` : `at ${profile.company}`}
+                    {profile.jobTitle} {profile.isAnonymous ? `in ${profile.industry || "Unknown Industry"}` : `at ${profile.company || "Unknown Company"}`}
                   </p>
                 </div>
               </div>
@@ -124,16 +129,20 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             {/* Profile details */}
             <div className="space-y-2">
               <div className="flex space-x-2">
-                <span className="px-2 py-1 bg-brand-purple/10 text-brand-purple text-sm rounded-full">
-                  {profile.zodiacSign}
-                </span>
-                <span className="px-2 py-1 bg-brand-blue/10 text-brand-blue text-sm rounded-full">
-                  Life Path {profile.lifePath}
-                </span>
+                {profile.zodiacSign && (
+                  <span className="px-2 py-1 bg-brand-purple/10 text-brand-purple text-sm rounded-full">
+                    {profile.zodiacSign}
+                  </span>
+                )}
+                {profile.lifePath && (
+                  <span className="px-2 py-1 bg-brand-blue/10 text-brand-blue text-sm rounded-full">
+                    Life Path {profile.lifePath}
+                  </span>
+                )}
               </div>
               
               <h4 className="font-semibold text-sm mt-3 text-gray-700">Education</h4>
-              <p className="text-sm">{profile.education}</p>
+              <p className="text-sm">{profile.education || "Not specified"}</p>
 
               <h4 className="font-semibold text-sm mt-3 text-gray-700">Skills</h4>
               <div className="flex flex-wrap gap-1">
@@ -150,6 +159,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                     +{safeSkills.length - 3}
                   </span>
                 )}
+                {safeSkills.length === 0 && (
+                  <span className="text-xs text-gray-500">No skills listed</span>
+                )}
               </div>
             </div>
 
@@ -164,33 +176,43 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
 
               {showDetails && (
                 <div className="mt-3 space-y-3 pt-3 border-t">
-                  {Array.isArray(insights) && insights.length > 0 && (
+                  {safeInsights.length > 0 ? (
                     <div>
                       <h4 className="font-semibold text-sm text-gray-700">Insights</h4>
                       <ul className="list-disc pl-5 text-sm mt-1">
-                        {insights.map((insight, i) => (
+                        {safeInsights.map((insight, i) => (
                           <li key={i}>{insight}</li>
                         ))}
                       </ul>
                     </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No insights available</div>
                   )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <h4 className="font-semibold text-sm text-green-600">Pros</h4>
-                      <ul className="list-disc pl-5 text-sm mt-1">
-                        {Array.isArray(pros) && pros.map((pro, i) => (
-                          <li key={i}>{pro}</li>
-                        ))}
-                      </ul>
+                      {safePros.length > 0 ? (
+                        <ul className="list-disc pl-5 text-sm mt-1">
+                          {safePros.map((pro, i) => (
+                            <li key={i}>{pro}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-500">No pros listed</p>
+                      )}
                     </div>
                     <div>
                       <h4 className="font-semibold text-sm text-red-500">Cons</h4>
-                      <ul className="list-disc pl-5 text-sm mt-1">
-                        {Array.isArray(cons) && cons.map((con, i) => (
-                          <li key={i}>{con}</li>
-                        ))}
-                      </ul>
+                      {safeCons.length > 0 ? (
+                        <ul className="list-disc pl-5 text-sm mt-1">
+                          {safeCons.map((con, i) => (
+                            <li key={i}>{con}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-500">No cons listed</p>
+                      )}
                     </div>
                   </div>
                 </div>

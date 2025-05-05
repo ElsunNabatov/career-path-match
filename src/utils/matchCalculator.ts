@@ -1,9 +1,12 @@
 
-export const getZodiacSign = (date: Date | undefined): string => {
+export const getZodiacSign = (date: string | Date | undefined): string => {
   if (!date) return '';
+  
+  // Convert string date to Date object if needed
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
 
-  const month = date.getMonth() + 1; // Month is 0-indexed
-  const day = date.getDate();
+  const month = dateObj.getMonth() + 1; // Month is 0-indexed
+  const day = dateObj.getDate();
 
   if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) {
     return 'Aries';
@@ -34,12 +37,15 @@ export const getZodiacSign = (date: Date | undefined): string => {
   }
 };
 
-export const calculateLifePathNumber = (date: Date | undefined): number => {
+export const calculateLifePathNumber = (date: string | Date | undefined): number => {
   if (!date) return 0;
+  
+  // Convert string date to Date object if needed
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
 
-  const day = date.getDate();
-  const month = date.getMonth() + 1; // Month is 0-indexed
-  const year = date.getFullYear();
+  const day = dateObj.getDate();
+  const month = dateObj.getMonth() + 1; // Month is 0-indexed
+  const year = dateObj.getFullYear();
 
   let sum = 0;
   let daySum = String(day).split('').reduce((acc, curr) => acc + Number(curr), 0);
@@ -55,8 +61,10 @@ export const calculateLifePathNumber = (date: Date | undefined): number => {
   return sum;
 };
 
-// Add the missing function for compatibility color classes
-export const getCompatibilityColorClass = (score: number): string => {
+// Function for compatibility color classes
+export const getCompatibilityColorClass = (score: number | undefined): string => {
+  if (score === undefined || score === null) return 'text-gray-500';
+  
   if (score >= 80) {
     return 'text-green-500';
   } else if (score >= 60) {
