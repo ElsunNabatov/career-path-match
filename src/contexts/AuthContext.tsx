@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser, getUserProfile } from '@/lib/supabase';
@@ -49,15 +48,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Use setTimeout to prevent deadlocks with Supabase auth
             setTimeout(() => {
               loadUserProfile(session.user.id).then(profile => {
-                // Check if user needs LinkedIn verification
+                // Check if user needs verification
                 const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
                 setNeedsLinkedInVerification(needsVerification);
                 
                 // Redirect based on verification status and current location
                 if (location.pathname === '/signin' || location.pathname === '/signup') {
                   if (needsVerification) {
+                    console.log("Redirecting to verification page");
                     navigate('/verification');
                   } else {
+                    console.log("Redirecting to people page");
                     navigate('/people');
                   }
                 }

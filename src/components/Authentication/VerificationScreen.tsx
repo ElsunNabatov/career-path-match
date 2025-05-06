@@ -33,17 +33,23 @@ const VerificationScreen = () => {
       return;
     }
     
-    // Determine which step to show
+    console.log("Verification screen - profile:", profile);
+    
+    // Determine which step to show based on profile verification status
     if (profile) {
-      if (!profile.linkedin_url || !profile.linkedin_verified) {
-        setStep('linkedin');
-      } else if (!profile.selfie_verified) {
+      if (profile.linkedin_verified && profile.selfie_verified) {
+        // If both are verified, redirect to people
+        navigate('/people');
+      } else if (profile.linkedin_verified) {
+        // If only LinkedIn is verified, go to selfie step
         setStep('selfie');
       } else {
-        setStep('complete');
+        // If LinkedIn is not verified, go to LinkedIn step
+        setStep('linkedin');
       }
     } else {
-      setStep('initial');
+      // Default to LinkedIn step if no profile data yet
+      setStep('linkedin');
     }
     
     // If user came from OAuth sign-in, they might not have profile data yet
@@ -78,10 +84,13 @@ const VerificationScreen = () => {
       // Update profile with LinkedIn URL
       await updateProfile({
         linkedin_url: linkedinUrl,
-        // Not marking as verified yet until selfie is also verified
+        linkedin_verified: true // Mark as verified for this demo
       });
       
-      toast.success("LinkedIn URL saved");
+      // Refresh profile data
+      await refreshUser();
+      
+      toast.success("LinkedIn verified successfully");
       setStep('selfie');
     } catch (error: any) {
       toast.error(error.message || "Failed to save LinkedIn URL");
@@ -142,7 +151,6 @@ const VerificationScreen = () => {
       
       // Update profile with verification status
       await updateProfile({
-        linkedin_verified: true,
         selfie_verified: true
       });
       
@@ -313,6 +321,9 @@ const VerificationScreen = () => {
             </Button>
           </div>
         );
+        
+      default:
+        return null;
     }
   };
 
