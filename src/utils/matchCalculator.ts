@@ -61,8 +61,8 @@ export const calculateLifePathNumber = (date: string | Date | undefined): number
   return sum;
 };
 
-// Function for compatibility color classes
-export const getCompatibilityColorClass = (score: number | undefined): string => {
+// Function for compatibility color classes - Enhanced with better null checking
+export const getCompatibilityColorClass = (score: number | undefined | null): string => {
   if (score === undefined || score === null) return 'text-gray-500';
   
   if (score >= 80) {

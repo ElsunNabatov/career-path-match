@@ -51,8 +51,9 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
   
   const isPremiumRequired = likesUsed >= likeLimit;
 
-  // Ensure all arrays are valid
-  const safeSkills = Array.isArray(profile.skills) ? profile.skills : [];
+  // Ensure all arrays are valid - this was likely causing the error at line 145
+  const safeProfile = profile || { id: "", isAnonymous: true };
+  const safeSkills = Array.isArray(safeProfile.skills) ? safeProfile.skills : [];
   const safeInsights = Array.isArray(insights) ? insights : [];
   const safePros = Array.isArray(pros) ? pros : [];
   const safeCons = Array.isArray(cons) ? cons : [];
@@ -62,16 +63,16 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
       <div className="relative">
         {/* Profile image */}
         <div className="h-80 bg-gray-200">
-          {profile.photo && !profile.isAnonymous ? (
+          {safeProfile.photo && !safeProfile.isAnonymous ? (
             <img
-              src={profile.photo}
-              alt={profile.name || "Profile"}
+              src={safeProfile.photo}
+              alt={safeProfile.name || "Profile"}
               className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-blue/10 to-brand-purple/10">
               <div className="text-center">
-                {profile.isAnonymous ? (
+                {safeProfile.isAnonymous ? (
                   <div className="p-6 rounded-full bg-brand-purple/20 mb-4">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -90,7 +91,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                   </div>
                 ) : null}
                 <p className="text-brand-blue font-semibold">
-                  {profile.isAnonymous
+                  {safeProfile.isAnonymous
                     ? "Anonymous Profile"
                     : "Profile Picture"}
                 </p>
@@ -112,15 +113,15 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-bold text-xl">
-                    {profile.isAnonymous ? "Anonymous" : profile.name}
-                    {profile.age && (
+                    {safeProfile.isAnonymous ? "Anonymous" : safeProfile.name}
+                    {safeProfile.age && (
                       <span className="ml-2 text-gray-600">
-                        {profile.age}
+                        {safeProfile.age}
                       </span>
                     )}
                   </h3>
                   <p className="text-gray-600">
-                    {profile.jobTitle} {profile.isAnonymous ? `in ${profile.industry || "Unknown Industry"}` : `at ${profile.company || "Unknown Company"}`}
+                    {safeProfile.jobTitle} {safeProfile.isAnonymous ? `in ${safeProfile.industry || "Unknown Industry"}` : `at ${safeProfile.company || "Unknown Company"}`}
                   </p>
                 </div>
               </div>
@@ -129,20 +130,20 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             {/* Profile details */}
             <div className="space-y-2">
               <div className="flex space-x-2">
-                {profile.zodiacSign && (
+                {safeProfile.zodiacSign && (
                   <span className="px-2 py-1 bg-brand-purple/10 text-brand-purple text-sm rounded-full">
-                    {profile.zodiacSign}
+                    {safeProfile.zodiacSign}
                   </span>
                 )}
-                {profile.lifePath && (
+                {safeProfile.lifePath && (
                   <span className="px-2 py-1 bg-brand-blue/10 text-brand-blue text-sm rounded-full">
-                    Life Path {profile.lifePath}
+                    Life Path {safeProfile.lifePath}
                   </span>
                 )}
               </div>
               
               <h4 className="font-semibold text-sm mt-3 text-gray-700">Education</h4>
-              <p className="text-sm">{profile.education || "Not specified"}</p>
+              <p className="text-sm">{safeProfile.education || "Not specified"}</p>
 
               <h4 className="font-semibold text-sm mt-3 text-gray-700">Skills</h4>
               <div className="flex flex-wrap gap-1">
@@ -227,13 +228,13 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             <Button 
               variant="outline" 
               className="border-gray-300"
-              onClick={() => onSkip && onSkip(profile.id)}
+              onClick={() => onSkip && onSkip(safeProfile.id)}
             >
               Skip
             </Button>
             <Button 
               className="bg-brand-purple hover:bg-brand-purple/90"
-              onClick={() => onLike && onLike(profile.id)}
+              onClick={() => onLike && onLike(safeProfile.id)}
               disabled={isPremiumRequired}
             >
               {isPremiumRequired ? 'Upgrade' : 'Like'}
@@ -246,7 +247,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             <Button 
               variant="outline" 
               className="border-amber-400 text-amber-600 hover:bg-amber-50"
-              onClick={() => onCoffee && onCoffee(profile.id)}
+              onClick={() => onCoffee && onCoffee(safeProfile.id)}
             >
               <Coffee className="mr-1 h-4 w-4" />
               Coffee $1
@@ -254,7 +255,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
             <Button 
               variant="outline" 
               className="border-red-400 text-red-600 hover:bg-red-50"
-              onClick={() => onMeal && onMeal(profile.id)}
+              onClick={() => onMeal && onMeal(safeProfile.id)}
             >
               <Sandwich className="mr-1 h-4 w-4" />
               Meal $2
