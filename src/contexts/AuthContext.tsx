@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser, getUserProfile } from '@/lib/supabase';
@@ -52,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
                 setNeedsLinkedInVerification(needsVerification);
                 
-                // Redirect based on verification status
+                // Redirect based on verification status and current location
                 if (location.pathname === '/signin' || location.pathname === '/signup') {
                   if (needsVerification) {
                     navigate('/verification');
@@ -229,7 +230,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/verification'
+          redirectTo: `${window.location.origin}/verification`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
 
@@ -247,7 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
-          redirectTo: window.location.origin + '/verification'
+          redirectTo: `${window.location.origin}/verification`,
         }
       });
 
