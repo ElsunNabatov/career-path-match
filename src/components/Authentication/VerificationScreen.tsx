@@ -39,26 +39,31 @@ const VerificationScreen = () => {
     if (profile) {
       if (profile.linkedin_verified && profile.selfie_verified) {
         // If both are verified, redirect to people
+        console.log("Both verifications done, redirecting to people");
         navigate('/people');
       } else if (profile.linkedin_verified) {
         // If only LinkedIn is verified, go to selfie step
+        console.log("LinkedIn verified, showing selfie step");
         setStep('selfie');
       } else {
         // If LinkedIn is not verified, go to LinkedIn step
+        console.log("LinkedIn not verified, showing LinkedIn step");
         setStep('linkedin');
       }
     } else {
       // Default to LinkedIn step if no profile data yet
+      console.log("No profile data, defaulting to LinkedIn step");
       setStep('linkedin');
     }
     
     // If user came from OAuth sign-in, they might not have profile data yet
     if (user && !profile) {
+      console.log("User exists but no profile, refreshing user data");
       refreshUser();
     }
   }, [user, profile, navigate, refreshUser]);
 
-  // Handle verification code entry
+  // Handle verification code entry (if needed in the future)
   const handleVerifyCode = () => {
     if (otp.length === 6) {
       // In a real application, verify the OTP with backend
