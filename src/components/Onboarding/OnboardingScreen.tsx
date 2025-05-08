@@ -18,18 +18,25 @@ const OnboardingScreen: React.FC = () => {
   const [orientation, setOrientation] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const navigate = useNavigate();
-  const { user, profile, updateProfile, isLoading } = useAuth();
+  const { user, profile, updateProfile, isLoading, refreshUser } = useAuth();
   
   // Protect this page - only authenticated users should see it
   useEffect(() => {
+    console.log("OnboardingScreen - Loading state:", isLoading);
+    console.log("OnboardingScreen - User:", user);
+    console.log("OnboardingScreen - Profile:", profile);
+    
     if (!isLoading && !user) {
+      console.log("No authenticated user, redirecting to signin");
       navigate('/signin');
       return;
     }
     
     // If user has completed onboarding before, redirect to people page
     if (profile && profile.orientation) {
+      console.log("User has already completed onboarding, redirecting to people page");
       navigate('/people');
+      return;
     }
     
     // Pre-select signup method based on auth provider
@@ -40,9 +47,6 @@ const OnboardingScreen: React.FC = () => {
     } else {
       setSignUpMethod('email');
     }
-    
-    console.log("OnboardingScreen - User:", user);
-    console.log("OnboardingScreen - Profile:", profile);
   }, [user, profile, navigate, isLoading]);
 
   const handleNext = async () => {
@@ -51,19 +55,26 @@ const OnboardingScreen: React.FC = () => {
     } else {
       // Complete onboarding and update profile
       try {
+        toast.info("Saving your profile information...");
+        
+        const linkedInUrl = (document.getElementById('linkedin-url') as HTMLInputElement)?.value || 
+          profile?.linkedin_url || '';
+        
         await updateProfile({
           orientation: orientation,
           birthday: selectedDate ? new Date(selectedDate).toISOString() : undefined,
-          linkedin_url: document.getElementById('linkedin-url') ? 
-            (document.getElementById('linkedin-url') as HTMLInputElement).value : 
-            profile?.linkedin_url
+          linkedin_url: linkedInUrl
         });
+        
+        // Refresh the user data after updating
+        await refreshUser();
         
         toast.success("Onboarding completed successfully!");
         
         // Navigate to home/people page
         navigate("/people");
       } catch (error: any) {
+        console.error("Onboarding error:", error);
         toast.error("Failed to complete onboarding: " + error.message);
       }
     }
@@ -82,12 +93,32 @@ const OnboardingScreen: React.FC = () => {
     }
   };
   
+  // Show a more informative loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen flex justify-center items-center">
+      <div className="min-h-screen flex justify-center items-center bg-gradient-to-b from-white to-brand-lightGray">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your profile...</p>
+          <p className="mt-4 text-xl font-medium text-gray-700">Loading onboarding...</p>
+          <p className="mt-2 text-sm text-gray-500">We're getting everything ready for you</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Safety check - ensure we have a user
+  if (!user) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-gradient-to-b from-white to-brand-lightGray">
+        <div className="text-center">
+          <p className="mt-4 text-xl font-medium text-red-600">Authentication Required</p>
+          <p className="mt-2 text-sm text-gray-500">Please sign in to continue</p>
+          <Button 
+            onClick={() => navigate('/signin')}
+            className="mt-4 bg-brand-purple hover:bg-brand-purple/90"
+          >
+            Go to Sign In
+          </Button>
         </div>
       </div>
     );
@@ -261,11 +292,7 @@ const OnboardingScreen: React.FC = () => {
                     id="linkedin-url"
                     placeholder="https://linkedin.com/in/yourprofile"
                     className="w-full"
-                    defaultValue={
-                      signUpMethod === "linkedin"
-                        ? "https://linkedin.com/in/johndoe"
-                        : ""
-                    }
+                    defaultValue={profile?.linkedin_url || (signUpMethod === "linkedin" ? "https://linkedin.com/in/johndoe" : "")}
                   />
                 </div>
                 

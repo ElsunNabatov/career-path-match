@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';  // Note that we're now importing from the re-exporter
@@ -33,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [subscription, setSubscription] = useState<string>('free');
   const [needsLinkedInVerification, setNeedsLinkedInVerification] = useState<boolean>(false);
+  const [initializationComplete, setInitializationComplete] = useState<boolean>(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -42,20 +44,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         console.log("Starting authentication setup...");
-        
+
         // Clean up any existing auth state to prevent conflicts
         cleanupAuthState();
 
-        // Set up auth state listener FIRST
+        // Set up auth state listener FIRST - this is important for the order of operations
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, session) => {
             console.log("Auth state changed:", event, session?.user?.email);
             
             if (event === 'SIGNED_OUT') {
+              console.log("User signed out, clearing states");
               setSession(null);
               setUser(null);
               setProfile(null);
-              navigate('/signin');
+              setNeedsLinkedInVerification(false);
+              
+              // Only navigate away if we're not already on a sign-in or sign-up page
+              if (!['/signin', '/signup'].includes(location.pathname)) {
+                navigate('/signin');
+              }
               return;
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
               console.log("User signed in or token refreshed");
@@ -86,13 +94,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         console.log("Redirecting to people page");
                         navigate('/people');
                       }
-                      setIsLoading(false);
                     }
+                    setIsLoading(false);
                   }).catch(error => {
                     console.error("Error loading user profile:", error);
                     setIsLoading(false);
                   });
                 }, 0);
+              } else {
+                setIsLoading(false);
               }
             }
           }
@@ -106,25 +116,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user || null);
 
         if (session?.user) {
-          const userProfile = await loadUserProfile(session.user.id);
-          
-          // Decide where to redirect the user based on their profile status
-          if (location.pathname === '/signin' || location.pathname === '/signup') {
-            const needsVerification = !userProfile?.linkedin_verified || !userProfile?.selfie_verified;
+          try {
+            const userProfile = await loadUserProfile(session.user.id);
+            console.log("Initial profile loaded:", userProfile);
             
-            if (needsVerification) {
-              console.log("User needs verification, redirecting to /verification");
-              navigate('/verification');
-            } else if (!userProfile || Object.keys(userProfile).length === 0) {
-              console.log("User needs onboarding, redirecting to /onboarding");
-              navigate('/onboarding');
-            } else {
-              console.log("User has complete profile, redirecting to /people");
-              navigate('/people');
+            // Decide where to redirect the user based on their profile status
+            if (location.pathname === '/signin' || location.pathname === '/signup') {
+              const needsVerification = !userProfile?.linkedin_verified || !userProfile?.selfie_verified;
+              
+              if (needsVerification) {
+                console.log("User needs verification, redirecting to /verification");
+                navigate('/verification');
+              } else if (!userProfile || Object.keys(userProfile).length === 0) {
+                console.log("User needs onboarding, redirecting to /onboarding");
+                navigate('/onboarding');
+              } else {
+                console.log("User has complete profile, redirecting to /people");
+                navigate('/people');
+              }
             }
+          } catch (profileError) {
+            console.error("Error loading initial user profile:", profileError);
           }
         }
         
+        setInitializationComplete(true);
         setIsLoading(false);
         
         return () => {
@@ -132,12 +148,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       } catch (error) {
         console.error("Error in auth setup:", error);
+        setInitializationComplete(true);
         setIsLoading(false);
       }
     };
 
     loadSession();
   }, [navigate, location.pathname]);
+
+  // Add a fallback to prevent infinite loading
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.log("Auth loading timeout reached, forcing state to not loading");
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+    
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   const processProfileData = (profileData: any): Profile => {
     // Handle the hobbies field which might come as Json or string[]
@@ -255,6 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {
         // Continue even if this fails
+        console.log("Global sign out error (non-critical):", err);
       }
       
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -346,6 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      setIsLoading(true);
       // Clean up auth state first
       cleanupAuthState();
       
@@ -358,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.location.href = '/signin';
     } catch (error) {
       console.error("Error signing out:", error);
+      setIsLoading(false);
       throw error;
     }
   };
@@ -405,7 +437,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     updateProfile,
     refreshUser,
-    isLoading,
+    isLoading: isLoading && !initializationComplete,
     subscription,
     needsLinkedInVerification,
   };

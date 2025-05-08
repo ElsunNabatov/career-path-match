@@ -33,6 +33,7 @@ const SignInScreen = () => {
     console.log("SignInScreen - User:", user);
     console.log("SignInScreen - Auth Loading:", authLoading);
     
+    // Only redirect if we're sure the user is authenticated and we're not in a loading state
     if (user && !authLoading) {
       console.log("User already logged in, redirecting...");
       navigate('/verification');
@@ -114,7 +115,22 @@ const SignInScreen = () => {
     }
   };
 
-  if (authLoading) {
+  // If we're in a loading state from auth, show the loading indicator
+  // But add a timeout to prevent infinite loading
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
+  useEffect(() => {
+    if (authLoading) {
+      // Set a timeout to prevent infinite loading
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 5000); // 5 seconds timeout
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading]);
+
+  if (authLoading && !loadingTimeout) {
     return (
       <div className="min-h-screen w-full flex flex-col justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10">
         <Loader2 className="h-12 w-12 animate-spin text-brand-purple mb-4" />
@@ -123,6 +139,9 @@ const SignInScreen = () => {
       </div>
     );
   }
+  
+  // If we hit the timeout, show the sign-in screen anyway
+  // This prevents users from getting stuck on the loading screen
 
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10 p-4">
