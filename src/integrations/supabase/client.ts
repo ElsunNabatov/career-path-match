@@ -9,6 +9,24 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    storage: localStorage
+    storage: typeof window !== 'undefined' ? localStorage : undefined,
+    // Add proper redirect URLs for authentication
+    flowType: 'pkce',
+    detectSessionInUrl: true,
+    debug: true
   }
 });
+
+// Create a helper function to get the application base URL for redirects
+export const getAppBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  // Fallback for non-browser environments
+  return 'http://localhost:5173';
+};
+
+// Helper function to get correct redirect URL
+export const getRedirectUrl = (path = '/verification') => {
+  return `${getAppBaseUrl()}${path}`;
+};

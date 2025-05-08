@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase, getCurrentUser, getUserProfile } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUser, getUserProfile, signInWithGoogle, signInWithLinkedIn } from '@/lib/supabase';
 import { Profile } from '@/types/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cleanupAuthState } from '@/lib/authUtils';
@@ -40,6 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
 
       try {
+        // Clean up any existing auth state to prevent conflicts
+        cleanupAuthState();
+
         // Set up auth state listener FIRST
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
           async (event, session) => {
@@ -51,37 +55,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setProfile(null);
               navigate('/signin');
               return;
-            }
-            
-            setSession(session);
-            setUser(session?.user || null);
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+              console.log("User signed in or token refreshed");
+              setSession(session);
+              setUser(session?.user || null);
 
-            if (session?.user) {
-              // Use setTimeout to prevent deadlocks with Supabase auth
-              setTimeout(() => {
-                loadUserProfile(session.user.id).then(profile => {
-                  // Check if user needs verification
-                  const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
-                  setNeedsLinkedInVerification(needsVerification);
-                  
-                  // Redirect based on verification status and current location
-                  if (location.pathname === '/signin' || location.pathname === '/signup') {
-                    if (needsVerification) {
-                      console.log("Redirecting to verification page");
-                      navigate('/verification');
-                    } else {
-                      console.log("Redirecting to people page");
-                      navigate('/people');
+              if (session?.user) {
+                // Use setTimeout to prevent deadlocks with Supabase auth
+                setTimeout(() => {
+                  loadUserProfile(session.user.id).then(profile => {
+                    // Check if user needs verification
+                    const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
+                    setNeedsLinkedInVerification(needsVerification);
+                    
+                    // Redirect based on verification status and current location
+                    if (location.pathname === '/signin' || location.pathname === '/signup') {
+                      if (needsVerification) {
+                        console.log("Redirecting to verification page");
+                        navigate('/verification');
+                      } else {
+                        console.log("Redirecting to people page");
+                        navigate('/people');
+                      }
                     }
-                  }
-                });
-              }, 0);
-            } else {
-              setProfile(null);
-              // Redirect to signin if on a protected route and not signed in
-              const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
-              if (!publicRoutes.includes(location.pathname)) {
-                navigate('/signin');
+                  });
+                }, 0);
               }
             }
           }
@@ -89,6 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // THEN check for existing session
         const { data: { session } } = await supabase.auth.getSession();
+        console.log("Initial session check:", session?.user?.email);
+        
         setSession(session);
         setUser(session?.user || null);
 
@@ -194,6 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         options: {
           data: profileData,
+          emailRedirectTo: window.location.origin + '/verification',
         },
       });
 
@@ -248,56 +249,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async () => {
+  const handleSignInWithGoogle = async () => {
     try {
       // Clean up existing auth state first
       cleanupAuthState();
       
-      console.log("Starting Google sign-in flow");
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/verification`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        }
-      });
-
-      if (error) {
-        toast.error(error.message);
-        throw error;
-      }
-      
-      return data;
+      // Use the helper function from supabase.ts
+      return await signInWithGoogle();
     } catch (error) {
       console.error("Error signing in with Google:", error);
+      toast.error("Failed to sign in with Google. Please try again.");
       throw error;
     }
   };
 
-  const signInWithLinkedIn = async () => {
+  const handleSignInWithLinkedIn = async () => {
     try {
       // Clean up existing auth state first
       cleanupAuthState();
       
-      console.log("Starting LinkedIn sign-in flow");
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'linkedin_oidc',
-        options: {
-          redirectTo: `${window.location.origin}/verification`,
-        }
-      });
-
-      if (error) {
-        toast.error(error.message);
-        throw error;
-      }
-      
-      return data;
+      // Use the helper function from supabase.ts
+      return await signInWithLinkedIn();
     } catch (error) {
       console.error("Error signing in with LinkedIn:", error);
+      toast.error("Failed to sign in with LinkedIn. Please try again.");
       throw error;
     }
   };
@@ -371,8 +346,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     signUp,
     signIn,
-    signInWithGoogle,
-    signInWithLinkedIn,
+    signInWithGoogle: handleSignInWithGoogle,
+    signInWithLinkedIn: handleSignInWithLinkedIn,
     resetPassword,
     signOut,
     updateProfile,

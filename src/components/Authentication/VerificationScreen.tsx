@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, Check, RefreshCcw, Linkedin, ChevronRight, User } from "lucide-react";
@@ -42,9 +43,9 @@ const VerificationScreen = () => {
     // Determine which step to show based on profile verification status
     if (profile) {
       if (profile.linkedin_verified && profile.selfie_verified) {
-        // If both are verified, redirect to people
-        console.log("Both verifications done, redirecting to people");
-        navigate('/people');
+        // If both are verified, redirect to onboarding
+        console.log("Both verifications done, redirecting to onboarding");
+        navigate('/onboarding');
       } else if (profile.linkedin_verified) {
         // If only LinkedIn is verified, go to selfie step
         console.log("LinkedIn verified, showing selfie step");
@@ -166,7 +167,7 @@ const VerificationScreen = () => {
       await refreshUser();
       
       toast.success("Verification completed successfully!");
-      navigate('/people');
+      navigate('/onboarding');
     } catch (error: any) {
       toast.error(error.message || "Failed to complete verification");
     } finally {
@@ -313,7 +314,7 @@ const VerificationScreen = () => {
                     className="flex-1"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Verifying..." : "Confirm & Complete"}
+                    {isLoading ? "Verifying..." : "Confirm & Continue"}
                   </Button>
                 </div>
               </>
@@ -333,9 +334,9 @@ const VerificationScreen = () => {
             </p>
             <Button 
               className="w-full" 
-              onClick={() => navigate('/people')}
+              onClick={() => navigate('/onboarding')}
             >
-              Continue to App
+              Continue to Onboarding
             </Button>
           </div>
         );

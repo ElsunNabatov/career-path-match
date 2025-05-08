@@ -1,20 +1,6 @@
-
-import { createClient } from '@supabase/supabase-js';
+import { supabase, getRedirectUrl } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { generateSampleData } from './dataSeed';
-
-// Create and export the supabase client with proper configuration
-export const supabase = createClient<Database>(
-  "https://fkmsuaxcswzoqmggzqsf.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbXN1YXhjc3d6b3FtZ2d6cXNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMTk0NjIsImV4cCI6MjA1OTc5NTQ2Mn0.1s2wLfuMSjwwZ1hZDxxaLK1mHWQ2XaDanf2qOVoP4RU",
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      storage: localStorage
-    }
-  }
-);
 
 // Helper function to get the current user
 export const getCurrentUser = async () => {
@@ -179,6 +165,45 @@ export const getNearbyProfiles = async (userId: string, radiusMiles: number = 25
     })).filter(profile => profile.distance <= radiusMiles);
   } catch (error) {
     console.error('Error fetching nearby profiles:', error);
+    throw error;
+  }
+};
+
+// OAuth helper functions
+export const signInWithGoogle = async (redirectTo = '/verification') => {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: getRedirectUrl(redirectTo),
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error signing in with Google:", error);
+    throw error;
+  }
+};
+
+export const signInWithLinkedIn = async (redirectTo = '/verification') => {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'linkedin_oidc',
+      options: {
+        redirectTo: getRedirectUrl(redirectTo),
+      }
+    });
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error signing in with LinkedIn:", error);
     throw error;
   }
 };
