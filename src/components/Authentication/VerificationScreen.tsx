@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, Check, RefreshCcw, Linkedin, ChevronRight, User } from "lucide-react";
@@ -9,10 +8,11 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 
 const VerificationScreen = () => {
   const navigate = useNavigate();
-  const { user, profile, updateProfile, refreshUser } = useAuth();
+  const { user, profile, updateProfile, refreshUser, isLoading: authLoading } = useAuth();
   
   // States for each verification step
   const [step, setStep] = useState<'initial' | 'linkedin' | 'selfie' | 'complete'>('initial');
@@ -27,8 +27,12 @@ const VerificationScreen = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   useEffect(() => {
+    // Initial loading state
+    if (authLoading) return;
+    
     // Check if user is authenticated
     if (!user) {
+      console.log("No user found, redirecting to signin");
       navigate('/signin');
       return;
     }
@@ -61,7 +65,7 @@ const VerificationScreen = () => {
       console.log("User exists but no profile, refreshing user data");
       refreshUser();
     }
-  }, [user, profile, navigate, refreshUser]);
+  }, [user, profile, navigate, refreshUser, authLoading]);
 
   // Handle verification code entry (if needed in the future)
   const handleVerifyCode = () => {
@@ -169,6 +173,15 @@ const VerificationScreen = () => {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
 
   // Render different steps based on current step
   const renderStepContent = () => {

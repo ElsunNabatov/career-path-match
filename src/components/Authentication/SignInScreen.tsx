@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { cleanupAuthState } from "@/lib/authUtils";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -20,10 +21,17 @@ const formSchema = z.object({
 
 const SignInScreen = () => {
   const navigate = useNavigate();
-  const { signIn, signInWithGoogle, signInWithLinkedIn, resetPassword } = useAuth();
+  const { signIn, signInWithGoogle, signInWithLinkedIn, resetPassword, user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  
+  // Check if already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate('/verification');
+    }
+  }, [user, navigate]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -36,10 +44,13 @@ const SignInScreen = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
+      // Clean up any existing auth state
+      cleanupAuthState();
+      
       await signIn(values.email, values.password);
       // Auth context will handle navigation on successful login
-    } catch (error) {
-      // Auth context will handle error display
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign in");
       setIsLoading(false);
     }
   };
@@ -48,10 +59,15 @@ const SignInScreen = () => {
     try {
       console.log("Starting LinkedIn sign-in flow");
       setIsLoading(true);
+      
+      // Clean up any existing auth state
+      cleanupAuthState();
+      
       await signInWithLinkedIn();
       // OAuth redirect will happen automatically
-    } catch (error) {
+    } catch (error: any) {
       console.error("LinkedIn sign-in error:", error);
+      toast.error(error.message || "LinkedIn sign-in failed");
       setIsLoading(false);
     }
   };
@@ -60,10 +76,15 @@ const SignInScreen = () => {
     try {
       console.log("Starting Google sign-in flow");
       setIsLoading(true);
+      
+      // Clean up any existing auth state
+      cleanupAuthState();
+      
       await signInWithGoogle();
       // OAuth redirect will happen automatically
-    } catch (error) {
+    } catch (error: any) {
       console.error("Google sign-in error:", error);
+      toast.error(error.message || "Google sign-in failed");
       setIsLoading(false);
     }
   };
@@ -86,6 +107,15 @@ const SignInScreen = () => {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10 p-4">

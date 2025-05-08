@@ -3,6 +3,8 @@ import { Session } from '@supabase/supabase-js';
 import { supabase, getCurrentUser, getUserProfile } from '@/lib/supabase';
 import { Profile } from '@/types/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { cleanupAuthState } from '@/lib/authUtils';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   session: Session | null;
@@ -37,58 +39,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadSession = async () => {
       setIsLoading(true);
 
-      // Set up auth state listener FIRST
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          console.log("Auth state changed:", _event, session?.user?.email);
-          setSession(session);
-          setUser(session?.user || null);
-
-          if (session?.user) {
-            // Use setTimeout to prevent deadlocks with Supabase auth
-            setTimeout(() => {
-              loadUserProfile(session.user.id).then(profile => {
-                // Check if user needs verification
-                const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
-                setNeedsLinkedInVerification(needsVerification);
-                
-                // Redirect based on verification status and current location
-                if (location.pathname === '/signin' || location.pathname === '/signup') {
-                  if (needsVerification) {
-                    console.log("Redirecting to verification page");
-                    navigate('/verification');
-                  } else {
-                    console.log("Redirecting to people page");
-                    navigate('/people');
-                  }
-                }
-              });
-            }, 0);
-          } else {
-            setProfile(null);
-            // Redirect to signin if on a protected route
-            const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
-            if (!publicRoutes.includes(location.pathname)) {
+      try {
+        // Set up auth state listener FIRST
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log("Auth state changed:", event, session?.user?.email);
+            
+            if (event === 'SIGNED_OUT') {
+              setSession(null);
+              setUser(null);
+              setProfile(null);
               navigate('/signin');
+              return;
+            }
+            
+            setSession(session);
+            setUser(session?.user || null);
+
+            if (session?.user) {
+              // Use setTimeout to prevent deadlocks with Supabase auth
+              setTimeout(() => {
+                loadUserProfile(session.user.id).then(profile => {
+                  // Check if user needs verification
+                  const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
+                  setNeedsLinkedInVerification(needsVerification);
+                  
+                  // Redirect based on verification status and current location
+                  if (location.pathname === '/signin' || location.pathname === '/signup') {
+                    if (needsVerification) {
+                      console.log("Redirecting to verification page");
+                      navigate('/verification');
+                    } else {
+                      console.log("Redirecting to people page");
+                      navigate('/people');
+                    }
+                  }
+                });
+              }, 0);
+            } else {
+              setProfile(null);
+              // Redirect to signin if on a protected route and not signed in
+              const publicRoutes = ['/signin', '/signup', '/verification', '/reset-password'];
+              if (!publicRoutes.includes(location.pathname)) {
+                navigate('/signin');
+              }
             }
           }
+        );
+
+        // THEN check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user || null);
+
+        if (session?.user) {
+          await loadUserProfile(session.user.id);
         }
-      );
-
-      // THEN check for existing session
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user || null);
-
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
+        
+        setIsLoading(false);
+        
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error("Error in auth setup:", error);
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
-      
-      return () => {
-        subscription.unsubscribe();
-      };
     };
 
     loadSession();
@@ -169,6 +185,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, profileData: Partial<Profile>) => {
     try {
+      // Clean up existing auth state first
+      cleanupAuthState();
+      
+      // Attempt to sign up
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -178,11 +198,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
+        toast.error(error.message);
         throw error;
       }
 
       if (data.user) {
         await loadUserProfile(data.user.id);
+        toast.success("Account created successfully!");
       }
 
       return data;
@@ -194,17 +216,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Clean up existing auth state first
+      cleanupAuthState();
+      
+      // Attempt global sign out to prevent conflicts
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+      }
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        toast.error(error.message);
         throw error;
       }
 
       if (data.user) {
         await loadUserProfile(data.user.id);
+        toast.success("Signed in successfully!");
       }
 
       return data;
@@ -216,6 +250,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      // Clean up existing auth state first
+      cleanupAuthState();
+      
       console.log("Starting Google sign-in flow");
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -228,7 +265,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        toast.error(error.message);
+        throw error;
+      }
+      
       return data;
     } catch (error) {
       console.error("Error signing in with Google:", error);
@@ -238,6 +279,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithLinkedIn = async () => {
     try {
+      // Clean up existing auth state first
+      cleanupAuthState();
+      
       console.log("Starting LinkedIn sign-in flow");
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
@@ -246,7 +290,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        toast.error(error.message);
+        throw error;
+      }
+      
       return data;
     } catch (error) {
       console.error("Error signing in with LinkedIn:", error);
@@ -270,10 +318,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Clean up auth state first
+      cleanupAuthState();
+      
+      await supabase.auth.signOut({ scope: 'global' });
       setSession(null);
       setUser(null);
       setProfile(null);
+      
+      // Force page reload for a clean state
+      window.location.href = '/signin';
     } catch (error) {
       console.error("Error signing out:", error);
       throw error;
