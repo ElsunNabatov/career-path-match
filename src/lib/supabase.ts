@@ -1,6 +1,10 @@
-import { supabase, getRedirectUrl } from '@/integrations/supabase/client';
+
+import { supabase as supabaseClient, getRedirectUrl, getAppBaseUrl } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { generateSampleData } from './dataSeed';
+
+// Re-export the Supabase client
+export const supabase = supabaseClient;
 
 // Helper function to get the current user
 export const getCurrentUser = async () => {
@@ -207,3 +211,6 @@ export const signInWithLinkedIn = async (redirectTo = '/verification') => {
     throw error;
   }
 };
+
+// Re-export the helper functions from client
+export { getRedirectUrl, getAppBaseUrl };

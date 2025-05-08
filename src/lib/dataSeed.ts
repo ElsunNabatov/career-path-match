@@ -1,5 +1,4 @@
-
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to get random item from array
@@ -54,7 +53,6 @@ const samplePhotos = [
   "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=500",
   "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=500",
   "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=500",
-  "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=500",
   "https://images.unsplash.com/photo-1502323777036-f29e3972d82f?q=80&w=500",
   "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?q=80&w=500",
 ];
