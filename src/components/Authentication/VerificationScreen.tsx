@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, Check, RefreshCcw, Linkedin, ChevronRight, User } from "lucide-react";
@@ -39,6 +38,7 @@ const VerificationScreen = () => {
     }
     
     console.log("Verification screen - profile:", profile);
+    console.log("Verification screen - user:", user);
     
     // Determine which step to show based on profile verification status
     if (profile) {
@@ -177,9 +177,10 @@ const VerificationScreen = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen w-full flex justify-center items-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-        <span className="ml-2">Loading...</span>
+      <div className="min-h-screen w-full flex flex-col justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10">
+        <Loader2 className="h-12 w-12 animate-spin text-brand-purple mb-4" />
+        <p className="text-lg text-gray-700">Verifying your account...</p>
+        <p className="text-sm text-gray-500 mt-2">This will only take a moment</p>
       </div>
     );
   }

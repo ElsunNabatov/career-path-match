@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';  // Note that we're now importing from the re-exporter
 import { getCurrentUser, getUserProfile, signInWithGoogle, signInWithLinkedIn } from '@/lib/supabase';
 import { Profile } from '@/types/supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -41,6 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
 
       try {
+        console.log("Starting authentication setup...");
+        
         // Clean up any existing auth state to prevent conflicts
         cleanupAuthState();
 
@@ -68,16 +70,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
                     setNeedsLinkedInVerification(needsVerification);
                     
+                    console.log("Loaded profile:", profile);
+                    console.log("Needs verification:", needsVerification);
+                    console.log("Current location path:", location.pathname);
+                    
                     // Redirect based on verification status and current location
                     if (location.pathname === '/signin' || location.pathname === '/signup') {
                       if (needsVerification) {
                         console.log("Redirecting to verification page");
                         navigate('/verification');
+                      } else if (!profile || Object.keys(profile).length === 0) {
+                        console.log("Redirecting to onboarding page");
+                        navigate('/onboarding');
                       } else {
                         console.log("Redirecting to people page");
                         navigate('/people');
                       }
+                      setIsLoading(false);
                     }
+                  }).catch(error => {
+                    console.error("Error loading user profile:", error);
+                    setIsLoading(false);
                   });
                 }, 0);
               }
@@ -93,7 +106,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user || null);
 
         if (session?.user) {
-          await loadUserProfile(session.user.id);
+          const userProfile = await loadUserProfile(session.user.id);
+          
+          // Decide where to redirect the user based on their profile status
+          if (location.pathname === '/signin' || location.pathname === '/signup') {
+            const needsVerification = !userProfile?.linkedin_verified || !userProfile?.selfie_verified;
+            
+            if (needsVerification) {
+              console.log("User needs verification, redirecting to /verification");
+              navigate('/verification');
+            } else if (!userProfile || Object.keys(userProfile).length === 0) {
+              console.log("User needs onboarding, redirecting to /onboarding");
+              navigate('/onboarding');
+            } else {
+              console.log("User has complete profile, redirecting to /people");
+              navigate('/people');
+            }
+          }
         }
         
         setIsLoading(false);
@@ -217,6 +246,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
+      setIsLoading(true);
       // Clean up existing auth state first
       cleanupAuthState();
       
@@ -234,45 +264,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         toast.error(error.message);
+        setIsLoading(false);
         throw error;
       }
 
       if (data.user) {
-        await loadUserProfile(data.user.id);
+        const userProfile = await loadUserProfile(data.user.id);
+        const needsVerification = !userProfile?.linkedin_verified || !userProfile?.selfie_verified;
+        
         toast.success("Signed in successfully!");
+        
+        if (needsVerification) {
+          navigate('/verification');
+        } else if (!userProfile || Object.keys(userProfile).length === 0) {
+          navigate('/onboarding');
+        } else {
+          navigate('/people');
+        }
       }
-
+      
+      setIsLoading(false);
       return data;
     } catch (error) {
       console.error("Error signing in:", error);
+      setIsLoading(false);
       throw error;
     }
   };
 
   const handleSignInWithGoogle = async () => {
     try {
+      setIsLoading(true);
       // Clean up existing auth state first
       cleanupAuthState();
       
       // Use the helper function from supabase.ts
-      return await signInWithGoogle();
+      const result = await signInWithGoogle();
+      console.log("Google sign-in initiated:", result);
+      // OAuth redirect will happen automatically
+      return result;
     } catch (error) {
       console.error("Error signing in with Google:", error);
       toast.error("Failed to sign in with Google. Please try again.");
+      setIsLoading(false);
       throw error;
     }
   };
 
   const handleSignInWithLinkedIn = async () => {
     try {
+      setIsLoading(true);
       // Clean up existing auth state first
       cleanupAuthState();
       
       // Use the helper function from supabase.ts
-      return await signInWithLinkedIn();
+      const result = await signInWithLinkedIn();
+      console.log("LinkedIn sign-in initiated:", result);
+      // OAuth redirect will happen automatically
+      return result;
     } catch (error) {
       console.error("Error signing in with LinkedIn:", error);
       toast.error("Failed to sign in with LinkedIn. Please try again.");
+      setIsLoading(false);
       throw error;
     }
   };

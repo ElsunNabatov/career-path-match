@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,10 +29,15 @@ const SignInScreen = () => {
   
   // Check if already authenticated
   useEffect(() => {
-    if (user) {
+    // Adding debug info
+    console.log("SignInScreen - User:", user);
+    console.log("SignInScreen - Auth Loading:", authLoading);
+    
+    if (user && !authLoading) {
+      console.log("User already logged in, redirecting...");
       navigate('/verification');
     }
-  }, [user, navigate]);
+  }, [user, navigate, authLoading]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -110,9 +116,10 @@ const SignInScreen = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen w-full flex justify-center items-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
-        <span className="ml-2">Loading...</span>
+      <div className="min-h-screen w-full flex flex-col justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10">
+        <Loader2 className="h-12 w-12 animate-spin text-brand-purple mb-4" />
+        <p className="text-lg text-gray-700">Preparing your experience...</p>
+        <p className="text-sm text-gray-500 mt-2">Please wait while we load your profile</p>
       </div>
     );
   }

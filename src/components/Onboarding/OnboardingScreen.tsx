@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Linkedin, Mail, ChevronRight, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Logo from "../ui/Logo";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const OnboardingScreen: React.FC = () => {
   const [step, setStep] = useState<number>(1);
@@ -16,13 +18,54 @@ const OnboardingScreen: React.FC = () => {
   const [orientation, setOrientation] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>("");
   const navigate = useNavigate();
+  const { user, profile, updateProfile, isLoading } = useAuth();
+  
+  // Protect this page - only authenticated users should see it
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/signin');
+      return;
+    }
+    
+    // If user has completed onboarding before, redirect to people page
+    if (profile && profile.orientation) {
+      navigate('/people');
+    }
+    
+    // Pre-select signup method based on auth provider
+    if (user?.app_metadata?.provider === 'google') {
+      setSignUpMethod('linkedin');
+    } else if (user?.app_metadata?.provider === 'linkedin_oidc') {
+      setSignUpMethod('linkedin');
+    } else {
+      setSignUpMethod('email');
+    }
+    
+    console.log("OnboardingScreen - User:", user);
+    console.log("OnboardingScreen - Profile:", profile);
+  }, [user, profile, navigate, isLoading]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < 4) {
       setStep(step + 1);
     } else {
-      // Complete onboarding and navigate to home
-      navigate("/home");
+      // Complete onboarding and update profile
+      try {
+        await updateProfile({
+          orientation: orientation,
+          birthday: selectedDate ? new Date(selectedDate).toISOString() : undefined,
+          linkedin_url: document.getElementById('linkedin-url') ? 
+            (document.getElementById('linkedin-url') as HTMLInputElement).value : 
+            profile?.linkedin_url
+        });
+        
+        toast.success("Onboarding completed successfully!");
+        
+        // Navigate to home/people page
+        navigate("/people");
+      } catch (error: any) {
+        toast.error("Failed to complete onboarding: " + error.message);
+      }
     }
   };
 
@@ -38,6 +81,17 @@ const OnboardingScreen: React.FC = () => {
         return true;
     }
   };
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-purple mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-brand-lightGray">
