@@ -36,7 +36,7 @@ const SignInScreen = () => {
     // Only redirect if we're sure the user is authenticated and we're not in a loading state
     if (user && !authLoading) {
       console.log("User already logged in, redirecting...");
-      navigate('/verification');
+      // We'll let the AuthContext handle the navigation based on verification status
     }
   }, [user, navigate, authLoading]);
   
@@ -87,6 +87,7 @@ const SignInScreen = () => {
       // Clean up any existing auth state
       cleanupAuthState();
       
+      toast.info("Redirecting to Google sign in...");
       await signInWithGoogle();
       // OAuth redirect will happen automatically
     } catch (error: any) {
@@ -163,7 +164,7 @@ const SignInScreen = () => {
                   type="button" 
                   className="border-gray-300 flex items-center justify-center gap-2 hover:bg-brand-purple/5 hover:border-brand-purple/30 transition-all"
                   onClick={handleGoogleSignIn}
-                  disabled={isLoading}
+                  disabled={isLoading || authLoading}
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -179,7 +180,7 @@ const SignInScreen = () => {
                   type="button" 
                   className="border-gray-300 flex items-center justify-center gap-2 hover:bg-brand-blue/5 hover:border-brand-blue/30 transition-all"
                   onClick={handleLinkedInSignIn}
-                  disabled={isLoading}
+                  disabled={isLoading || authLoading}
                 >
                   <Linkedin className="h-5 w-5 text-[#0077B5]" />
                   <span>LinkedIn</span>
@@ -205,7 +206,7 @@ const SignInScreen = () => {
                           <Input 
                             placeholder="your.email@example.com" 
                             {...field} 
-                            disabled={isLoading}
+                            disabled={isLoading || authLoading}
                             className="border-gray-300 focus-visible:ring-brand-purple"
                           />
                         </FormControl>
@@ -224,7 +225,7 @@ const SignInScreen = () => {
                             type="password" 
                             placeholder="••••••••" 
                             {...field} 
-                            disabled={isLoading}
+                            disabled={isLoading || authLoading}
                             className="border-gray-300 focus-visible:ring-brand-purple"
                           />
                         </FormControl>
@@ -236,7 +237,7 @@ const SignInScreen = () => {
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-to-r from-brand-blue to-brand-purple hover:opacity-90 transition-all"
-                    disabled={isLoading}
+                    disabled={isLoading || authLoading}
                   >
                     {isLoading ? (
                       <>
@@ -302,7 +303,7 @@ const SignInScreen = () => {
               variant="link" 
               onClick={() => setShowForgotPassword(true)}
               className="text-brand-purple hover:text-brand-blue transition-colors"
-              disabled={isLoading}
+              disabled={isLoading || authLoading}
             >
               Forgot your password?
             </Button>
@@ -313,7 +314,7 @@ const SignInScreen = () => {
               variant="link" 
               onClick={() => navigate("/signup")} 
               className="p-0 h-auto text-sm text-brand-purple hover:text-brand-blue transition-colors"
-              disabled={isLoading}
+              disabled={isLoading || authLoading}
             >
               Sign Up
             </Button>

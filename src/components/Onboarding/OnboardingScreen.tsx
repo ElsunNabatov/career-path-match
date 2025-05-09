@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Linkedin, Mail, ChevronRight, Calendar } from "lucide-react";
@@ -36,6 +35,13 @@ const OnboardingScreen: React.FC = () => {
     if (profile && profile.orientation) {
       console.log("User has already completed onboarding, redirecting to people page");
       navigate('/people');
+      return;
+    }
+    
+    // Check if LinkedIn is verified
+    if (user && profile && !profile.linkedin_verified) {
+      console.log("LinkedIn not verified, redirecting to verification");
+      navigate('/verification');
       return;
     }
     

@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';  // Note that we're now importing from the re-exporter
@@ -38,6 +37,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        console.log("Auth loading timeout reached, forcing state to not loading");
+        setIsLoading(false);
+      }
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
+
   useEffect(() => {
     const loadSession = async () => {
       setIsLoading(true);
@@ -72,22 +83,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
               if (session?.user) {
                 // Use setTimeout to prevent deadlocks with Supabase auth
-                setTimeout(() => {
-                  loadUserProfile(session.user.id).then(profile => {
-                    // Check if user needs verification
-                    const needsVerification = !profile?.linkedin_verified || !profile?.selfie_verified;
+                setTimeout(async () => {
+                  try {
+                    const userProfile = await loadUserProfile(session.user.id);
+                    
+                    // Clear loading state first to prevent UI freezes
+                    setIsLoading(false);
+                    
+                    // First, check if we need verification
+                    const needsVerification = !userProfile?.linkedin_verified;
                     setNeedsLinkedInVerification(needsVerification);
                     
-                    console.log("Loaded profile:", profile);
+                    console.log("Loaded profile:", userProfile);
                     console.log("Needs verification:", needsVerification);
                     console.log("Current location path:", location.pathname);
                     
-                    // Redirect based on verification status and current location
-                    if (location.pathname === '/signin' || location.pathname === '/signup') {
+                    // Handle redirection based on current path and verification status
+                    if (location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/') {
                       if (needsVerification) {
                         console.log("Redirecting to verification page");
                         navigate('/verification');
-                      } else if (!profile || Object.keys(profile).length === 0) {
+                      } else if (!userProfile || !userProfile.orientation) {
                         console.log("Redirecting to onboarding page");
                         navigate('/onboarding');
                       } else {
@@ -95,11 +111,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         navigate('/people');
                       }
                     }
+                  } catch (error) {
+                    console.error("Error loading user profile after auth change:", error);
                     setIsLoading(false);
-                  }).catch(error => {
-                    console.error("Error loading user profile:", error);
-                    setIsLoading(false);
-                  });
+                  }
                 }, 0);
               } else {
                 setIsLoading(false);
@@ -121,13 +136,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log("Initial profile loaded:", userProfile);
             
             // Decide where to redirect the user based on their profile status
-            if (location.pathname === '/signin' || location.pathname === '/signup') {
-              const needsVerification = !userProfile?.linkedin_verified || !userProfile?.selfie_verified;
-              
+            const needsVerification = !userProfile?.linkedin_verified;
+            setNeedsLinkedInVerification(needsVerification);
+            
+            if (location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/') {
               if (needsVerification) {
                 console.log("User needs verification, redirecting to /verification");
                 navigate('/verification');
-              } else if (!userProfile || Object.keys(userProfile).length === 0) {
+              } else if (!userProfile || !userProfile.orientation) {
                 console.log("User needs onboarding, redirecting to /onboarding");
                 navigate('/onboarding');
               } else {
@@ -155,18 +171,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadSession();
   }, [navigate, location.pathname]);
-
-  // Add a fallback to prevent infinite loading
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        console.log("Auth loading timeout reached, forcing state to not loading");
-        setIsLoading(false);
-      }
-    }, 10000); // 10 second timeout
-    
-    return () => clearTimeout(timeoutId);
-  }, [isLoading]);
 
   const processProfileData = (profileData: any): Profile => {
     // Handle the hobbies field which might come as Json or string[]
@@ -230,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Check if user needs LinkedIn verification
-      const needsVerification = !processedProfile?.linkedin_verified || !processedProfile?.selfie_verified;
+      const needsVerification = !processedProfile?.linkedin_verified;
       setNeedsLinkedInVerification(needsVerification);
       
       setProfile(processedProfile);
@@ -300,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         const userProfile = await loadUserProfile(data.user.id);
-        const needsVerification = !userProfile?.linkedin_verified || !userProfile?.selfie_verified;
+        const needsVerification = !userProfile?.linkedin_verified;
         
         toast.success("Signed in successfully!");
         
@@ -329,10 +333,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanupAuthState();
       
       // Use the helper function from supabase.ts
-      const result = await signInWithGoogle();
-      console.log("Google sign-in initiated:", result);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/verification',
+        }
+      });
+      
+      console.log("Google sign-in initiated:", data);
       // OAuth redirect will happen automatically
-      return result;
+      return data;
     } catch (error) {
       console.error("Error signing in with Google:", error);
       toast.error("Failed to sign in with Google. Please try again.");
