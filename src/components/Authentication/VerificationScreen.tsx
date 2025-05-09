@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Check, RefreshCcw, Linkedin, ChevronRight, User } from "lucide-react";
+import { Linkedin, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,10 @@ const VerificationScreen = () => {
   
   useEffect(() => {
     // Initial loading state
-    if (authLoading) return;
+    if (authLoading) {
+      console.log("VerificationScreen - Auth still loading, waiting...");
+      return;
+    }
     
     console.log("Verification screen - Loading state:", authLoading);
     console.log("Verification screen - profile:", profile);
@@ -61,32 +64,38 @@ const VerificationScreen = () => {
   const handleLinkedInVerify = async () => {
     try {
       setIsLoading(true);
+      console.log("Starting LinkedIn verification process");
       
       // Validate LinkedIn URL
-      if (!linkedinUrl.includes('linkedin.com/')) {
+      if (!linkedinUrl || !linkedinUrl.includes('linkedin.com/')) {
         toast.error("Please enter a valid LinkedIn URL");
         setIsLoading(false);
         return;
       }
       
-      // Update profile with LinkedIn URL
+      console.log("Updating profile with LinkedIn URL:", linkedinUrl);
+      // Update profile with LinkedIn URL and mark as verified
       await updateProfile({
         linkedin_url: linkedinUrl,
         linkedin_verified: true // Mark as verified
       });
       
       // Refresh profile data
-      await refreshUser();
+      const updatedProfile = await refreshUser();
+      console.log("Profile updated after verification:", updatedProfile);
       
       toast.success("LinkedIn profile verified successfully!");
       
       // Redirect to onboarding or people page based on profile completion
-      if (profile && profile.orientation) {
+      if (updatedProfile && updatedProfile.orientation) {
+        console.log("Profile has orientation, redirecting to people");
         navigate('/people');
       } else {
+        console.log("Profile missing orientation, redirecting to onboarding");
         navigate('/onboarding');
       }
     } catch (error: any) {
+      console.error("LinkedIn verification error:", error);
       toast.error(error.message || "Failed to verify LinkedIn URL");
     } finally {
       setIsLoading(false);

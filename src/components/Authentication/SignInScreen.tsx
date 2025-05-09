@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,6 +70,7 @@ const SignInScreen = () => {
       cleanupAuthState();
       
       await signInWithLinkedIn();
+      toast.info("Redirecting to LinkedIn for authentication...");
       // OAuth redirect will happen automatically
     } catch (error: any) {
       console.error("LinkedIn sign-in error:", error);

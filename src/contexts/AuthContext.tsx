@@ -43,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isLoading) {
         console.log("Auth loading timeout reached, forcing state to not loading");
         setIsLoading(false);
+        setInitializationComplete(true);
       }
     }, 5000); // 5 second timeout
     
@@ -59,10 +60,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clean up any existing auth state to prevent conflicts
         cleanupAuthState();
 
-        // Set up auth state listener FIRST - this is important for the order of operations
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            console.log("Auth state changed:", event, session?.user?.email);
+        // First check for existing session
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        console.log("Initial session check:", existingSession?.user?.email || "No session");
+        
+        if (existingSession) {
+          setSession(existingSession);
+          setUser(existingSession.user);
+          
+          // Load user profile if we have a session
+          if (existingSession?.user) {
+            try {
+              const userProfile = await loadUserProfile(existingSession.user.id);
+              console.log("Initial profile loaded:", userProfile);
+              
+              // Set verification flag based on profile
+              const needsVerification = !userProfile?.linkedin_verified;
+              setNeedsLinkedInVerification(needsVerification);
+              console.log("Needs LinkedIn verification:", needsVerification);
+            } catch (profileError) {
+              console.error("Error loading initial user profile:", profileError);
+            }
+          }
+        }
+        
+        // THEN set up auth state listener
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+          async (event, newSession) => {
+            console.log("Auth state changed:", event, newSession?.user?.email || "No session");
             
             if (event === 'SIGNED_OUT') {
               console.log("User signed out, clearing states");
@@ -78,23 +103,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
               console.log("User signed in or token refreshed");
-              setSession(session);
-              setUser(session?.user || null);
+              setSession(newSession);
+              setUser(newSession?.user || null);
 
-              if (session?.user) {
+              if (newSession?.user) {
                 // Use setTimeout to prevent deadlocks with Supabase auth
                 setTimeout(async () => {
                   try {
-                    const userProfile = await loadUserProfile(session.user.id);
-                    
-                    // Clear loading state first to prevent UI freezes
-                    setIsLoading(false);
+                    const userProfile = await loadUserProfile(newSession.user.id);
                     
                     // First, check if we need verification
                     const needsVerification = !userProfile?.linkedin_verified;
                     setNeedsLinkedInVerification(needsVerification);
                     
-                    console.log("Loaded profile:", userProfile);
+                    console.log("Loaded profile after auth change:", userProfile);
                     console.log("Needs verification:", needsVerification);
                     console.log("Current location path:", location.pathname);
                     
@@ -113,54 +135,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                   } catch (error) {
                     console.error("Error loading user profile after auth change:", error);
+                  } finally {
                     setIsLoading(false);
                   }
                 }, 0);
               } else {
                 setIsLoading(false);
               }
+            } else if (event === 'INITIAL_SESSION') {
+              // Just update loading state for initial session
+              console.log("Initial session event received");
+              if (!newSession) {
+                // No user is logged in
+                setIsLoading(false);
+              }
             }
           }
         );
-
-        // THEN check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log("Initial session check:", session?.user?.email);
-        
-        setSession(session);
-        setUser(session?.user || null);
-
-        if (session?.user) {
-          try {
-            const userProfile = await loadUserProfile(session.user.id);
-            console.log("Initial profile loaded:", userProfile);
-            
-            // Decide where to redirect the user based on their profile status
-            const needsVerification = !userProfile?.linkedin_verified;
-            setNeedsLinkedInVerification(needsVerification);
-            
-            if (location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/') {
-              if (needsVerification) {
-                console.log("User needs verification, redirecting to /verification");
-                navigate('/verification');
-              } else if (!userProfile || !userProfile.orientation) {
-                console.log("User needs onboarding, redirecting to /onboarding");
-                navigate('/onboarding');
-              } else {
-                console.log("User has complete profile, redirecting to /people");
-                navigate('/people');
-              }
-            }
-          } catch (profileError) {
-            console.error("Error loading initial user profile:", profileError);
-          }
-        }
         
         setInitializationComplete(true);
-        setIsLoading(false);
+        
+        // If we got here and still loading, turn it off
+        if (isLoading && !existingSession) {
+          setIsLoading(false);
+        }
         
         return () => {
-          subscription.unsubscribe();
+          authSubscription.unsubscribe();
         };
       } catch (error) {
         console.error("Error in auth setup:", error);
@@ -428,11 +429,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     if (user) {
-      const refreshedProfile = await loadUserProfile(user.id);
-      if (refreshedProfile) {
-        setProfile(refreshedProfile);
+      try {
+        console.log("Refreshing user profile data");
+        const refreshedProfile = await loadUserProfile(user.id);
+        if (refreshedProfile) {
+          console.log("User profile refreshed successfully:", refreshedProfile);
+          setProfile(refreshedProfile);
+          
+          // Update verification status
+          const needsVerification = !refreshedProfile.linkedin_verified;
+          setNeedsLinkedInVerification(needsVerification);
+          
+          return refreshedProfile;
+        }
+      } catch (error) {
+        console.error("Error refreshing user profile:", error);
       }
     }
+    return null;
   };
 
   const value: AuthContextType = {
