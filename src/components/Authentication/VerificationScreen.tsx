@@ -9,17 +9,16 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
+import { validateEmail } from "@/lib/authUtils";
 
 const VerificationScreen = () => {
   const navigate = useNavigate();
   const { user, profile, updateProfile, refreshUser, isLoading: authLoading } = useAuth();
   
-  // States for verification step
   const [isLoading, setIsLoading] = useState(false);
   const [linkedinUrl, setLinkedinUrl] = useState(profile?.linkedin_url || "");
   
   useEffect(() => {
-    // Initial loading state
     if (authLoading) {
       console.log("VerificationScreen - Auth still loading, waiting...");
       return;
@@ -36,7 +35,7 @@ const VerificationScreen = () => {
       return;
     }
     
-    // If profile contains a verified LinkedIn, navigate to onboarding or people
+    // If profile contains a verified LinkedIn, navigate based on completion
     if (profile?.linkedin_verified) {
       if (!profile.orientation) {
         console.log("LinkedIn already verified, redirecting to onboarding");
@@ -53,52 +52,57 @@ const VerificationScreen = () => {
       setLinkedinUrl(profile.linkedin_url);
     }
     
-    // If user came from OAuth sign-in, they might not have profile data yet
+    // If user came from OAuth but no profile, refresh data
     if (user && !profile) {
       console.log("User exists but no profile, refreshing user data");
       refreshUser();
     }
   }, [user, profile, navigate, refreshUser, authLoading]);
 
-  // Handle LinkedIn URL verification
+  const validateLinkedInUrl = (url: string): boolean => {
+    if (!url) return false;
+    
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.includes('linkedin.com') && 
+             (url.includes('/in/') || url.includes('/pub/'));
+    } catch {
+      return false;
+    }
+  };
+
   const handleLinkedInVerify = async () => {
+    // Validation
+    if (!linkedinUrl.trim()) {
+      toast.error("Please enter your LinkedIn URL");
+      return;
+    }
+    
+    if (!validateLinkedInUrl(linkedinUrl)) {
+      toast.error("Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/yourprofile)");
+      return;
+    }
+    
     try {
       setIsLoading(true);
       console.log("Starting LinkedIn verification process");
       
-      // Validate LinkedIn URL
-      if (!linkedinUrl || !linkedinUrl.includes('linkedin.com/')) {
-        toast.error("Please enter a valid LinkedIn URL");
-        setIsLoading(false);
-        return;
-      }
-      
       console.log("Updating profile with LinkedIn URL:", linkedinUrl);
-      // Update profile with LinkedIn URL and mark as verified
       await updateProfile({
-        linkedin_url: linkedinUrl,
-        linkedin_verified: true // Mark as verified
+        linkedin_url: linkedinUrl.trim(),
+        linkedin_verified: true
       });
       
       // Refresh profile data
       await refreshUser();
       
-      // Get updated profile to check orientation
-      console.log("Profile updated after verification, checking orientation");
-      
+      console.log("Profile updated after verification");
       toast.success("LinkedIn profile verified successfully!");
       
-      // Redirect to onboarding or people page based on profile completion
-      if (profile && profile.orientation) {
-        console.log("Profile has orientation, redirecting to people");
-        navigate('/people');
-      } else {
-        console.log("Profile missing orientation, redirecting to onboarding");
-        navigate('/onboarding');
-      }
+      // Navigation will be handled by useEffect watching profile changes
     } catch (error: any) {
       console.error("LinkedIn verification error:", error);
-      toast.error(error.message || "Failed to verify LinkedIn URL");
+      toast.error(error.message || "Failed to verify LinkedIn URL. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +140,7 @@ const VerificationScreen = () => {
             
             <div className="space-y-2">
               <label htmlFor="linkedin-url" className="text-sm font-medium text-gray-700">
-                LinkedIn Profile URL
+                LinkedIn Profile URL *
               </label>
               <div className="relative">
                 <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -146,15 +150,19 @@ const VerificationScreen = () => {
                   placeholder="https://linkedin.com/in/yourprofile"
                   value={linkedinUrl}
                   onChange={(e) => setLinkedinUrl(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 focus-visible:ring-brand-purple"
+                  disabled={isLoading}
                 />
               </div>
+              <p className="text-xs text-gray-500">
+                Example: https://linkedin.com/in/johnsmith
+              </p>
             </div>
             
             <Button 
               className="w-full bg-gradient-to-r from-brand-blue to-brand-purple hover:opacity-90 transition-all" 
               onClick={handleLinkedInVerify}
-              disabled={isLoading || !linkedinUrl}
+              disabled={isLoading || !linkedinUrl.trim()}
             >
               {isLoading ? (
                 <>
@@ -172,7 +180,12 @@ const VerificationScreen = () => {
         </CardContent>
         
         <CardFooter className="flex justify-center">
-          <Button variant="link" className="text-muted-foreground" onClick={() => navigate('/signin')}>
+          <Button 
+            variant="link" 
+            className="text-muted-foreground" 
+            onClick={() => navigate('/signin')}
+            disabled={isLoading}
+          >
             Back to Sign In
           </Button>
         </CardFooter>

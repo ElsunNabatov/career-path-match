@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,11 +13,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { cleanupAuthState } from "@/lib/authUtils";
+import { validateEmail, validatePassword } from "@/lib/authUtils";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 const SignInScreen = () => {
@@ -26,16 +27,10 @@ const SignInScreen = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   
-  // Check if already authenticated
+  // Redirect authenticated users
   useEffect(() => {
-    // Adding debug info
-    console.log("SignInScreen - User:", user);
-    console.log("SignInScreen - Auth Loading:", authLoading);
-    
-    // Only redirect if we're sure the user is authenticated and we're not in a loading state
     if (user && !authLoading) {
-      console.log("User already logged in, redirecting...");
-      // We'll let the AuthContext handle the navigation based on verification status
+      console.log("User already authenticated, letting AuthContext handle navigation");
     }
   }, [user, navigate, authLoading]);
   
@@ -48,59 +43,64 @@ const SignInScreen = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // Client-side validation
+    if (!validateEmail(values.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
+    const passwordValidation = validatePassword(values.password);
+    if (!passwordValidation.isValid) {
+      toast.error(passwordValidation.message);
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      // Clean up any existing auth state
-      cleanupAuthState();
-      
       await signIn(values.email, values.password);
-      // Auth context will handle navigation on successful login
+      // AuthContext will handle navigation
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign in");
+      // Error is already handled in AuthContext with friendly messages
+      console.error("Sign in failed:", error);
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleLinkedInSignIn = async () => {
     try {
-      console.log("Starting LinkedIn sign-in flow");
       setIsLoading(true);
-      
-      // Clean up any existing auth state
-      cleanupAuthState();
-      
-      await signInWithLinkedIn();
       toast.info("Redirecting to LinkedIn for authentication...");
-      // OAuth redirect will happen automatically
+      await signInWithLinkedIn();
     } catch (error: any) {
       console.error("LinkedIn sign-in error:", error);
-      toast.error(error.message || "LinkedIn sign-in failed");
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     try {
-      console.log("Starting Google sign-in flow");
       setIsLoading(true);
-      
-      // Clean up any existing auth state
-      cleanupAuthState();
-      
       toast.info("Redirecting to Google sign in...");
       await signInWithGoogle();
-      // OAuth redirect will happen automatically
     } catch (error: any) {
       console.error("Google sign-in error:", error);
-      toast.error(error.message || "Google sign-in failed");
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!resetEmail) {
       toast.error("Please enter your email address");
+      return;
+    }
+    
+    if (!validateEmail(resetEmail)) {
+      toast.error("Please enter a valid email address");
       return;
     }
     
@@ -109,6 +109,7 @@ const SignInScreen = () => {
       await resetPassword(resetEmail);
       toast.success("Password reset instructions sent to your email");
       setShowForgotPassword(false);
+      setResetEmail("");
     } catch (error: any) {
       toast.error(error.message || "Failed to send reset instructions");
     } finally {
@@ -116,22 +117,8 @@ const SignInScreen = () => {
     }
   };
 
-  // If we're in a loading state from auth, show the loading indicator
-  // But add a timeout to prevent infinite loading
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
-  
-  useEffect(() => {
-    if (authLoading) {
-      // Set a timeout to prevent infinite loading
-      const timer = setTimeout(() => {
-        setLoadingTimeout(true);
-      }, 5000); // 5 seconds timeout
-      
-      return () => clearTimeout(timer);
-    }
-  }, [authLoading]);
-
-  if (authLoading && !loadingTimeout) {
+  // Loading state with timeout protection
+  if (authLoading) {
     return (
       <div className="min-h-screen w-full flex flex-col justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10">
         <Loader2 className="h-12 w-12 animate-spin text-brand-purple mb-4" />
@@ -140,9 +127,6 @@ const SignInScreen = () => {
       </div>
     );
   }
-  
-  // If we hit the timeout, show the sign-in screen anyway
-  // This prevents users from getting stuck on the loading screen
 
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10 p-4">
@@ -208,6 +192,7 @@ const SignInScreen = () => {
                             {...field} 
                             disabled={isLoading || authLoading}
                             className="border-gray-300 focus-visible:ring-brand-purple"
+                            autoComplete="email"
                           />
                         </FormControl>
                         <FormMessage />
@@ -227,6 +212,7 @@ const SignInScreen = () => {
                             {...field} 
                             disabled={isLoading || authLoading}
                             className="border-gray-300 focus-visible:ring-brand-purple"
+                            autoComplete="current-password"
                           />
                         </FormControl>
                         <FormMessage />
@@ -264,6 +250,8 @@ const SignInScreen = () => {
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   className="border-gray-300 focus-visible:ring-brand-purple"
+                  disabled={isLoading}
+                  autoComplete="email"
                 />
                 <p className="text-xs text-gray-500">
                   We'll send you instructions to reset your password.
@@ -275,14 +263,18 @@ const SignInScreen = () => {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setShowForgotPassword(false)}
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetEmail("");
+                  }}
+                  disabled={isLoading}
                 >
                   Cancel
                 </Button>
                 <Button 
                   type="submit"
                   className="flex-1 bg-gradient-to-r from-brand-blue to-brand-purple hover:opacity-90 transition-all"
-                  disabled={isLoading}
+                  disabled={isLoading || !resetEmail}
                 >
                   {isLoading ? (
                     <>
