@@ -81,13 +81,15 @@ const VerificationScreen = () => {
       });
       
       // Refresh profile data
-      const updatedProfile = await refreshUser();
-      console.log("Profile updated after verification:", updatedProfile);
+      await refreshUser();
+      
+      // Get updated profile to check orientation
+      console.log("Profile updated after verification, checking orientation");
       
       toast.success("LinkedIn profile verified successfully!");
       
       // Redirect to onboarding or people page based on profile completion
-      if (updatedProfile && updatedProfile.orientation) {
+      if (profile && profile.orientation) {
         console.log("Profile has orientation, redirecting to people");
         navigate('/people');
       } else {
