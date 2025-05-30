@@ -427,7 +427,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const refreshUser = async () => {
+  const refreshUser = async (): Promise<void> => {
     if (user) {
       try {
         console.log("Refreshing user profile data");
@@ -439,14 +439,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Update verification status
           const needsVerification = !refreshedProfile.linkedin_verified;
           setNeedsLinkedInVerification(needsVerification);
-          
-          return refreshedProfile;
         }
       } catch (error) {
         console.error("Error refreshing user profile:", error);
       }
     }
-    return null;
   };
 
   const value: AuthContextType = {
