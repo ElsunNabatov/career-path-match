@@ -226,6 +226,7 @@ export type Database = {
           linkedin_url: string | null
           linkedin_verified: boolean | null
           location: string | null
+          orientation: string | null
           photos: string[] | null
           review_score: number | null
           selfie_verified: boolean | null
@@ -248,6 +249,7 @@ export type Database = {
           linkedin_url?: string | null
           linkedin_verified?: boolean | null
           location?: string | null
+          orientation?: string | null
           photos?: string[] | null
           review_score?: number | null
           selfie_verified?: boolean | null
@@ -270,6 +272,7 @@ export type Database = {
           linkedin_url?: string | null
           linkedin_verified?: boolean | null
           location?: string | null
+          orientation?: string | null
           photos?: string[] | null
           review_score?: number | null
           selfie_verified?: boolean | null

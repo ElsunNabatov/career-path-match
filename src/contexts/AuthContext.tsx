@@ -45,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         setInitializationComplete(true);
       }
-    }, 5000); // 5 second timeout
+    }, 5000);
     
     return () => clearTimeout(timeoutId);
   }, [isLoading]);
@@ -121,7 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.log("Current location path:", location.pathname);
                     
                     // Handle redirection based on current path and verification status
-                    if (location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/') {
+                    // Only redirect if we're on auth pages or root
+                    if (['/signin', '/signup', '/', '/verification'].includes(location.pathname)) {
                       if (needsVerification) {
                         console.log("Redirecting to verification page");
                         navigate('/verification');
@@ -138,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   } finally {
                     setIsLoading(false);
                   }
-                }, 0);
+                }, 100); // Small delay to ensure DOM is ready
               } else {
                 setIsLoading(false);
               }
@@ -173,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadSession();
   }, [navigate, location.pathname]);
 
+  // Use the processProfileData function when setting profile state
   const processProfileData = (profileData: any): Profile => {
     // Handle the hobbies field which might come as Json or string[]
     let processedHobbies: string[] = [];
@@ -206,7 +208,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } as Profile;
   };
 
-  // Use the processProfileData function when setting profile state
   const loadUserProfile = async (userId: string) => {
     try {
       const { data: profileData, error } = await supabase
