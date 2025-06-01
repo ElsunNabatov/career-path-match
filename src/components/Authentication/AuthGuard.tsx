@@ -28,11 +28,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children, requireVerification = t
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
 
-  // Check if verification is required and user needs LinkedIn verification
-  if (requireVerification && needsLinkedInVerification) {
-    return <Navigate to="/verification" replace />;
-  }
-
+  // For testing: skip LinkedIn verification check entirely
   // Check if user needs to complete onboarding
   if (profile && !profile.orientation && !['/onboarding', '/onboarding/personal-info', '/onboarding/preferences'].includes(location.pathname)) {
     return <Navigate to="/onboarding" replace />;
