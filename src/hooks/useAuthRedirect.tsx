@@ -20,9 +20,8 @@ export const useAuthRedirect = () => {
 
     // If user exists but on auth pages, redirect appropriately
     if (user && ['/signin', '/signup', '/'].includes(location.pathname)) {
-      if (needsLinkedInVerification) {
-        navigate('/verification', { replace: true });
-      } else if (!profile?.orientation) {
+      // For testing: skip LinkedIn verification, go directly to onboarding or people page
+      if (!profile?.orientation) {
         navigate('/onboarding', { replace: true });
       } else {
         // Get the intended destination from state or default to people page

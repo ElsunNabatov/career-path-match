@@ -94,11 +94,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   // Load profile with proper error handling
                   try {
                     const userProfile = await loadUserProfile(newSession.user.id);
-                    const needsVerification = !userProfile?.linkedin_verified;
+                    // For testing: always set verification as false (no verification needed)
+                    const needsVerification = false;
                     setNeedsLinkedInVerification(needsVerification);
                     
                     console.log("Profile loaded after auth change:", userProfile);
-                    console.log("Needs verification:", needsVerification);
+                    console.log("Needs verification (testing mode - always false):", needsVerification);
                   } catch (error) {
                     console.error("Error loading user profile after auth change:", error);
                   }
@@ -143,7 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (existingSession?.user) {
             try {
               const userProfile = await loadUserProfile(existingSession.user.id);
-              const needsVerification = !userProfile?.linkedin_verified;
+              // For testing: always set verification as false (no verification needed)
+              const needsVerification = false;
               setNeedsLinkedInVerification(needsVerification);
               console.log("Initial profile loaded:", userProfile);
             } catch (profileError) {
@@ -231,11 +233,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const processedProfile = processProfileData(profileData);
       
+      // For testing: automatically set LinkedIn as verified if not already set
+      if (!processedProfile.linkedin_verified) {
+        console.log("Auto-setting LinkedIn as verified for testing");
+        try {
+          await supabase
+            .from('profiles')
+            .update({ 
+              linkedin_verified: true,
+              linkedin_url: processedProfile.linkedin_url || 'https://linkedin.com/in/test-user'
+            })
+            .eq('id', userId);
+          
+          processedProfile.linkedin_verified = true;
+          if (!processedProfile.linkedin_url) {
+            processedProfile.linkedin_url = 'https://linkedin.com/in/test-user';
+          }
+        } catch (updateError) {
+          console.error("Error auto-setting LinkedIn verification:", updateError);
+        }
+      }
+      
       if (subscriptionData) {
         setSubscription(subscriptionData.plan);
       }
       
-      const needsVerification = !processedProfile?.linkedin_verified;
+      // For testing: never require verification
+      const needsVerification = false;
       setNeedsLinkedInVerification(needsVerification);
       
       setProfile(processedProfile);
@@ -429,7 +453,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log("User profile refreshed successfully:", refreshedProfile);
           setProfile(refreshedProfile);
           
-          const needsVerification = !refreshedProfile.linkedin_verified;
+          // For testing: never require verification
+          const needsVerification = false;
           setNeedsLinkedInVerification(needsVerification);
         }
       } catch (error) {
