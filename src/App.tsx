@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
 import PeopleScreen from "./components/People/PeopleScreen";
 import ChatScreen from "./components/Chat/ChatScreen";
@@ -55,30 +55,110 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPasswordScreen />} />
               
               {/* Routes that require authentication but not verification */}
-              <Route element={<AuthGuard requireVerification={false} />}>
-                <Route path="/verification" element={<VerificationScreen />} />
-                <Route path="/onboarding" element={<OnboardingScreen />} />
-                <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
-                <Route path="/onboarding/preferences" element={<PreferencesForm />} />
-                <Route path="/linkedin-verification" element={<LinkedinVerificationScreen />} />
-              </Route>
+              <Route path="/verification" element={
+                <AuthGuard requireVerification={false}>
+                  <VerificationScreen />
+                </AuthGuard>
+              } />
+              <Route path="/onboarding" element={
+                <AuthGuard requireVerification={false}>
+                  <OnboardingScreen />
+                </AuthGuard>
+              } />
+              <Route path="/onboarding/personal-info" element={
+                <AuthGuard requireVerification={false}>
+                  <PersonalInfoForm />
+                </AuthGuard>
+              } />
+              <Route path="/onboarding/preferences" element={
+                <AuthGuard requireVerification={false}>
+                  <PreferencesForm />
+                </AuthGuard>
+              } />
+              <Route path="/linkedin-verification" element={
+                <AuthGuard requireVerification={false}>
+                  <LinkedinVerificationScreen />
+                </AuthGuard>
+              } />
               
               {/* Routes that require full verification */}
-              <Route element={<AuthGuard requireVerification={true} />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/people" element={<PeopleScreen />} />
-                  <Route path="/people/liked-by" element={<LikedByScreen />} />
-                  <Route path="/chats" element={<ChatScreen />} />
-                  <Route path="/calendar" element={<CalendarScreen />} />
-                  <Route path="/calendar/schedule" element={<SchedulePage />} />
-                  <Route path="/profile" element={<ProfileScreen />} />
-                  <Route path="/premium" element={<PremiumScreen />} />
-                  <Route path="/payment" element={<PaymentScreen />} />
-                  <Route path="/loyalty" element={<LoyaltyScreen />} />
-                  <Route path="/advisor" element={<DatingAdvisorScreen />} />
-                  <Route path="/reviews/:matchId" element={<ReviewScreen />} />
-                </Route>
-              </Route>
+              <Route path="/people" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <PeopleScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/people/liked-by" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <LikedByScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/chats" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <ChatScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/calendar" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <CalendarScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/calendar/schedule" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <SchedulePage />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/profile" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <ProfileScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/premium" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <PremiumScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/payment" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <PaymentScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/loyalty" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <LoyaltyScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/advisor" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <DatingAdvisorScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
+              <Route path="/reviews/:matchId" element={
+                <AuthGuard requireVerification={true}>
+                  <AppLayout>
+                    <ReviewScreen />
+                  </AppLayout>
+                </AuthGuard>
+              } />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
