@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import OnboardingScreen from "./components/Onboarding/OnboardingScreen";
 import PeopleScreen from "./components/People/PeopleScreen";
 import ChatScreen from "./components/Chat/ChatScreen";
@@ -25,9 +25,9 @@ import LinkedinVerificationScreen from "./components/Verification/LinkedinVerifi
 import ReviewScreen from "./components/Review/ReviewScreen";
 import LikedByScreen from "./components/People/LikedByScreen";
 import DatingAdvisorScreen from "./components/Advisor/DatingAdvisorScreen";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import AuthGuard from "./components/Authentication/AuthGuard";
+import { AuthProvider } from "./contexts/AuthContext";
 import { OnboardingProvider } from "./contexts/OnboardingContext";
-import { useEffect } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,38 +37,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// Route guard component to handle redirects based on auth state
-const RequireAuth = ({ requireVerification = true }) => {
-  const { user, isLoading, needsLinkedInVerification } = useAuth();
-  const location = useLocation();
-  
-  useEffect(() => {
-    console.log("RequireAuth check - needsVerification:", needsLinkedInVerification);
-    console.log("RequireAuth check - user:", user);
-    console.log("RequireAuth check - isLoading:", isLoading);
-    console.log("RequireAuth check - requireVerification param:", requireVerification);
-  }, [user, isLoading, needsLinkedInVerification, requireVerification]);
-  
-  if (isLoading) {
-    // Show loading state while checking auth
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-  
-  if (!user) {
-    console.log("No user detected, redirecting to signin");
-    // Redirect to login if not authenticated
-    return <Navigate to="/signin" state={{ from: location }} replace />;
-  }
-  
-  if (requireVerification && needsLinkedInVerification) {
-    console.log("User needs LinkedIn verification, redirecting to verification");
-    // Redirect to verification if needed
-    return <Navigate to="/verification" replace />;
-  }
-  
-  return <Outlet />;
-};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -84,11 +52,11 @@ const App = () => (
               {/* Public routes */}
               <Route path="/signin" element={<SignInScreen />} />
               <Route path="/signup" element={<SignUpScreen />} />
-              <Route path="/verification" element={<VerificationScreen />} />
               <Route path="/reset-password" element={<ResetPasswordScreen />} />
               
               {/* Routes that require authentication but not verification */}
-              <Route element={<RequireAuth requireVerification={false} />}>
+              <Route element={<AuthGuard requireVerification={false} />}>
+                <Route path="/verification" element={<VerificationScreen />} />
                 <Route path="/onboarding" element={<OnboardingScreen />} />
                 <Route path="/onboarding/personal-info" element={<PersonalInfoForm />} />
                 <Route path="/onboarding/preferences" element={<PreferencesForm />} />
@@ -96,7 +64,7 @@ const App = () => (
               </Route>
               
               {/* Routes that require full verification */}
-              <Route element={<RequireAuth requireVerification={true} />}>
+              <Route element={<AuthGuard requireVerification={true} />}>
                 <Route element={<AppLayout />}>
                   <Route path="/people" element={<PeopleScreen />} />
                   <Route path="/people/liked-by" element={<LikedByScreen />} />

@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -46,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         setInitializationComplete(true);
       }
-    }, 8000); // Increased timeout for better reliability
+    }, 5000); // Reduced timeout for better UX
     
     return () => clearTimeout(timeoutId);
   }, [isLoading]);
@@ -62,7 +61,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clean up any existing problematic auth state
         cleanupAuthState();
 
-        // Get current session with error handling
+        // Set up auth state listener FIRST
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+          async (event, newSession) => {
+            if (!mounted) return;
+            
+            console.log("Auth state changed:", event, newSession?.user?.email || "No session");
+            
+            try {
+              if (event === 'SIGNED_OUT') {
+                console.log("User signed out, clearing states");
+                setSession(null);
+                setUser(null);
+                setProfile(null);
+                setNeedsLinkedInVerification(false);
+                setIsLoading(false);
+                return;
+              } 
+              
+              if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (!newSession || !isValidSession(newSession)) {
+                  console.warn("Invalid session received, signing out");
+                  await supabase.auth.signOut();
+                  return;
+                }
+                
+                console.log("User signed in or token refreshed");
+                setSession(newSession);
+                setUser(newSession.user);
+
+                if (newSession?.user) {
+                  // Load profile with proper error handling
+                  try {
+                    const userProfile = await loadUserProfile(newSession.user.id);
+                    const needsVerification = !userProfile?.linkedin_verified;
+                    setNeedsLinkedInVerification(needsVerification);
+                    
+                    console.log("Profile loaded after auth change:", userProfile);
+                    console.log("Needs verification:", needsVerification);
+                  } catch (error) {
+                    console.error("Error loading user profile after auth change:", error);
+                  }
+                }
+                
+                setIsLoading(false);
+              } 
+              
+              if (event === 'INITIAL_SESSION') {
+                console.log("Initial session event received");
+                setIsLoading(false);
+              }
+            } catch (error) {
+              console.error("Error in auth state change handler:", error);
+              if (mounted) {
+                setIsLoading(false);
+              }
+            }
+          }
+        );
+
+        // THEN get current session
         const { data: { session: existingSession }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -81,124 +139,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSession(existingSession);
           setUser(existingSession.user);
           
-          // Load user profile with error handling
+          // Load user profile
           if (existingSession?.user) {
             try {
               const userProfile = await loadUserProfile(existingSession.user.id);
-              console.log("Initial profile loaded:", userProfile);
-              
               const needsVerification = !userProfile?.linkedin_verified;
               setNeedsLinkedInVerification(needsVerification);
-              console.log("Needs LinkedIn verification:", needsVerification);
+              console.log("Initial profile loaded:", userProfile);
             } catch (profileError) {
               console.error("Error loading initial user profile:", profileError);
-              // Don't block auth flow for profile errors
             }
           }
         }
         
-        // Set up auth state listener with improved error handling
-        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-          async (event, newSession) => {
-            if (!mounted) return;
-            
-            console.log("Auth state changed:", event, newSession?.user?.email || "No session");
-            
-            try {
-              if (event === 'SIGNED_OUT') {
-                console.log("User signed out, clearing states");
-                setSession(null);
-                setUser(null);
-                setProfile(null);
-                setNeedsLinkedInVerification(false);
-                
-                // Only navigate if not already on auth pages
-                if (!['/signin', '/signup'].includes(location.pathname)) {
-                  navigate('/signin');
-                }
-                return;
-              } 
-              
-              if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                // Validate session before proceeding
-                if (!newSession || !isValidSession(newSession)) {
-                  console.warn("Invalid session received, signing out");
-                  await supabase.auth.signOut();
-                  return;
-                }
-                
-                console.log("User signed in or token refreshed");
-                setSession(newSession);
-                setUser(newSession.user);
-
-                if (newSession?.user) {
-                  // Defer profile loading to prevent auth conflicts
-                  setTimeout(async () => {
-                    if (!mounted) return;
-                    
-                    try {
-                      const userProfile = await loadUserProfile(newSession.user.id);
-                      
-                      const needsVerification = !userProfile?.linkedin_verified;
-                      setNeedsLinkedInVerification(needsVerification);
-                      
-                      console.log("Loaded profile after auth change:", userProfile);
-                      console.log("Needs verification:", needsVerification);
-                      console.log("Current location path:", location.pathname);
-                      
-                      // Smart redirection logic
-                      const shouldRedirect = ['/signin', '/signup', '/', '/verification'].includes(location.pathname);
-                      
-                      if (shouldRedirect) {
-                        if (needsVerification) {
-                          console.log("Redirecting to verification page");
-                          navigate('/verification');
-                        } else if (!userProfile?.orientation) {
-                          console.log("Redirecting to onboarding page");
-                          navigate('/onboarding');
-                        } else {
-                          console.log("Redirecting to people page");
-                          navigate('/people');
-                        }
-                      }
-                    } catch (error) {
-                      console.error("Error loading user profile after auth change:", error);
-                      // Don't block the auth flow for profile errors
-                    } finally {
-                      if (mounted) {
-                        setIsLoading(false);
-                      }
-                    }
-                  }, 150); // Slightly longer delay for stability
-                } else {
-                  if (mounted) {
-                    setIsLoading(false);
-                  }
-                }
-              } 
-              
-              if (event === 'INITIAL_SESSION') {
-                console.log("Initial session event received");
-                if (!newSession && mounted) {
-                  setIsLoading(false);
-                }
-              }
-            } catch (error) {
-              console.error("Error in auth state change handler:", error);
-              if (mounted) {
-                setIsLoading(false);
-              }
-            }
-          }
-        );
-        
         if (mounted) {
           setInitializationComplete(true);
-          
-          // Final loading state cleanup
-          if (!existingSession) {
-            setIsLoading(false);
-          }
+          setIsLoading(false);
         }
         
         return () => {
@@ -218,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
     };
-  }, [navigate, location.pathname]);
+  }, []);
 
   // Use the processProfileData function when setting profile state
   const processProfileData = (profileData: any): Profile => {
@@ -262,7 +218,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      // Also get subscription data
       const { data: subscriptionData } = await supabase
         .from('subscriptions')
         .select('*')
@@ -276,12 +231,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const processedProfile = processProfileData(profileData);
       
-      // Add subscription information to the profile
       if (subscriptionData) {
         setSubscription(subscriptionData.plan);
       }
       
-      // Check if user needs LinkedIn verification
       const needsVerification = !processedProfile?.linkedin_verified;
       setNeedsLinkedInVerification(needsVerification);
       
@@ -303,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         options: {
           data: profileData,
-          emailRedirectTo: window.location.origin + '/verification',
+          emailRedirectTo: `${window.location.origin}/verification`,
         },
       });
 
@@ -331,7 +284,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       cleanupAuthState();
       
-      // Global sign out to prevent conflicts
       try {
         await supabase.auth.signOut({ scope: 'global' });
       } catch (err) {
@@ -351,12 +303,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
-        const userProfile = await loadUserProfile(data.user.id);
-        const needsVerification = !userProfile?.linkedin_verified;
-        
+        await loadUserProfile(data.user.id);
         toast.success("Signed in successfully!");
-        
-        // Let the auth state change handler handle navigation
       }
       
       return data;
@@ -375,7 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/verification',
+          redirectTo: `${window.location.origin}/verification`,
         }
       });
       
@@ -415,7 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     try {
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password',
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
@@ -440,8 +388,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setProfile(null);
       
-      // Force page reload for clean state
-      window.location.href = '/signin';
+      // Navigate to sign-in instead of forcing page reload
+      navigate('/signin', { replace: true });
+      setIsLoading(false);
     } catch (error) {
       console.error("Error signing out:", error);
       setIsLoading(false);
@@ -480,7 +429,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log("User profile refreshed successfully:", refreshedProfile);
           setProfile(refreshedProfile);
           
-          // Update verification status
           const needsVerification = !refreshedProfile.linkedin_verified;
           setNeedsLinkedInVerification(needsVerification);
         }

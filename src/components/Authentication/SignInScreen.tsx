@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { toast } from "sonner";
 import { validateEmail, validatePassword } from "@/lib/authUtils";
 
@@ -22,17 +23,14 @@ const formSchema = z.object({
 
 const SignInScreen = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signIn, signInWithGoogle, signInWithLinkedIn, resetPassword, user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   
-  // Redirect authenticated users
-  useEffect(() => {
-    if (user && !authLoading) {
-      console.log("User already authenticated, letting AuthContext handle navigation");
-    }
-  }, [user, navigate, authLoading]);
+  // Use the auth redirect hook
+  useAuthRedirect();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,7 +41,6 @@ const SignInScreen = () => {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // Client-side validation
     if (!validateEmail(values.email)) {
       toast.error("Please enter a valid email address");
       return;
@@ -58,9 +55,8 @@ const SignInScreen = () => {
     setIsLoading(true);
     try {
       await signIn(values.email, values.password);
-      // AuthContext will handle navigation
+      // Navigation will be handled by useAuthRedirect hook
     } catch (error: any) {
-      // Error is already handled in AuthContext with friendly messages
       console.error("Sign in failed:", error);
     } finally {
       setIsLoading(false);
@@ -117,7 +113,7 @@ const SignInScreen = () => {
     }
   };
 
-  // Loading state with timeout protection
+  // Show loading state while auth is being determined
   if (authLoading) {
     return (
       <div className="min-h-screen w-full flex flex-col justify-center items-center bg-gradient-to-br from-brand-blue/5 to-brand-purple/10">
