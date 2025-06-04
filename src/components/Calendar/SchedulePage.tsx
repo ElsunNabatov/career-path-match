@@ -118,8 +118,6 @@ const SchedulePage: React.FC = () => {
         type: dateType,
         status: 'scheduled'
       });
-
-      toast.success("Date scheduled successfully!");
       navigate("/calendar");
     } catch (error: any) {
       console.error('Error scheduling date:', error);
