@@ -62,7 +62,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     if (!date) {
       toast.error("Please select a date");
       return;
@@ -109,18 +109,22 @@ const SchedulePage: React.FC = () => {
 
     setIsSubmitting(true);
 
-    scheduleDate({
-      match_id: matchId,
-      date_time: dateTime.toISOString(),
-      location_name: locationName,
-      location_address: locationAddress,
-      type: dateType,
-      status: 'scheduled'
-    });
-
-    toast.success("Date scheduled successfully!");
-    setIsSubmitting(false);
-    navigate("/calendar");
+    try {
+      await scheduleDate({
+        match_id: matchId,
+        date_time: dateTime.toISOString(),
+        location_name: locationName,
+        location_address: locationAddress,
+        type: dateType,
+        status: 'scheduled'
+      });
+      navigate("/calendar");
+    } catch (error: any) {
+      console.error('Error scheduling date:', error);
+      toast.error(error.message || 'Failed to schedule date');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
