@@ -19,6 +19,7 @@ import DateTypeSelector from "./DateTypeSelector";
 import VenueRecommendations from "./VenueRecommendations";
 import { useCalendar } from "@/hooks/useCalendar";
 import { cn } from "@/lib/utils";
+import { LoyaltyVenue } from "@/types/supabase";
 
 const SchedulePage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const SchedulePage: React.FC = () => {
   const [time, setTime] = useState<string>("6:00 PM");
   const [dateType, setDateType] = useState<'coffee' | 'meal' | 'drink'>('coffee');
   const [locationTab, setLocationTab] = useState<string>("recommended");
-  const [selectedVenue, setSelectedVenue] = useState<any>(null);
+  const [selectedVenue, setSelectedVenue] = useState<LoyaltyVenue | null>(null);
   const [customLocationName, setCustomLocationName] = useState<string>("");
   const [customLocationAddress, setCustomLocationAddress] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -62,7 +63,7 @@ const SchedulePage: React.FC = () => {
     }
   };
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     if (!date) {
       toast.error("Please select a date");
       return;
@@ -109,18 +110,26 @@ const SchedulePage: React.FC = () => {
 
     setIsSubmitting(true);
 
-    scheduleDate({
-      match_id: matchId,
-      date_time: dateTime.toISOString(),
-      location_name: locationName,
-      location_address: locationAddress,
-      type: dateType,
-      status: 'scheduled'
-    });
-
-    toast.success("Date scheduled successfully!");
-    setIsSubmitting(false);
-    navigate("/calendar");
+    try {
+      await scheduleDate({
+        match_id: matchId,
+        date_time: dateTime.toISOString(),
+        location_name: locationName,
+        location_address: locationAddress,
+        type: dateType,
+        status: 'scheduled'
+      });
+      navigate("/calendar");
+    } catch (error: unknown) {
+      console.error('Error scheduling date:', error);
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to schedule date');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
