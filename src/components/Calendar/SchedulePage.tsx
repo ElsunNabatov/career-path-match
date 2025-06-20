@@ -19,6 +19,7 @@ import DateTypeSelector from "./DateTypeSelector";
 import VenueRecommendations from "./VenueRecommendations";
 import { useCalendar } from "@/hooks/useCalendar";
 import { cn } from "@/lib/utils";
+import { LoyaltyVenue } from "@/types/supabase";
 
 const SchedulePage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const SchedulePage: React.FC = () => {
   const [time, setTime] = useState<string>("6:00 PM");
   const [dateType, setDateType] = useState<'coffee' | 'meal' | 'drink'>('coffee');
   const [locationTab, setLocationTab] = useState<string>("recommended");
-  const [selectedVenue, setSelectedVenue] = useState<any>(null);
+  const [selectedVenue, setSelectedVenue] = useState<LoyaltyVenue | null>(null);
   const [customLocationName, setCustomLocationName] = useState<string>("");
   const [customLocationAddress, setCustomLocationAddress] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -119,9 +120,13 @@ const SchedulePage: React.FC = () => {
         status: 'scheduled'
       });
       navigate("/calendar");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error scheduling date:', error);
-      toast.error(error.message || 'Failed to schedule date');
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to schedule date');
+      }
     } finally {
       setIsSubmitting(false);
     }
