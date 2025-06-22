@@ -291,7 +291,8 @@ export const useCalendar = () => {
     isLoadingUpcoming: upcomingDates.isLoading,
     isLoadingPast: pastDates.isLoading,
     getVenues: venueRecommendationQuery,
-    scheduleDate: scheduleDateMutation.mutate,
+    // Expose the async version so callers can await the mutation
+    scheduleDate: scheduleDateMutation.mutateAsync,
     sendDateInvite: sendDateInviteMutation.mutate,
     acceptDateInvite: acceptDateInviteMutation.mutate,
     cancelDate: cancelDateMutation.mutate,
